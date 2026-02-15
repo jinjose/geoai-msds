@@ -1,0 +1,23 @@
+digest: 7cb3204a
+name: Early Season Forecast Dataset
+profile: '{"num_rows": 1081, "num_elements": 24863}'
+schema: '{"mlflow_colspec": [{"type": "string", "name": "county", "required": true},
+  {"type": "long", "name": "year", "required": true}, {"type": "double", "name": "yield_bu_acre",
+  "required": true}, {"type": "double", "name": "lag1_yield", "required": true}, {"type":
+  "double", "name": "rolling_3yr_mean", "required": true}, {"type": "double", "name":
+  "yield_std_5yr", "required": true}, {"type": "double", "name": "yield_trend_5yr",
+  "required": true}, {"type": "double", "name": "ndvi_at_cutoff", "required": true},
+  {"type": "double", "name": "ndvi_auc", "required": true}, {"type": "double", "name":
+  "ndvi_peak", "required": true}, {"type": "long", "name": "day_of_peak_ndvi", "required":
+  true}, {"type": "double", "name": "ndvi_anomaly", "required": true}, {"type": "double",
+  "name": "ndvi_slope", "required": true}, {"type": "long", "name": "ndvi_drop_rate",
+  "required": true}, {"type": "long", "name": "heat_days_gt32", "required": true},
+  {"type": "double", "name": "rain_sum_mm", "required": true}, {"type": "long", "name":
+  "rain_days", "required": true}, {"type": "double", "name": "cumulative_gdd", "required":
+  true}, {"type": "double", "name": "temp_anomaly", "required": true}, {"type": "double",
+  "name": "water_balance_total_mm", "required": true}, {"type": "double", "name":
+  "et_rain_ratio", "required": true}, {"type": "double", "name": "heat_rain_stress_idx",
+  "required": true}, {"type": "double", "name": "net_moisture_stress", "required":
+  true}]}'
+source: '{"uri": "/Users/jincyjose/PycharmProjects/453/Feb14 Experiments/data/features_frozen/features_jun01.csv"}'
+source_type: local

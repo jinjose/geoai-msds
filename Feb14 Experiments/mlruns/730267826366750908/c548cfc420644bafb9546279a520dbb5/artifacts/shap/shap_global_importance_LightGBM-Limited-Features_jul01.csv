@@ -1,0 +1,8 @@
+feature,mean_abs_shap
+rolling_3yr_mean,6.531011893341147
+temp_anomaly,5.705078857091748
+county,4.979898797173699
+ndvi_peak,3.771998948521387
+net_moisture_stress,3.186195176118705
+ndvi_slope,1.823992072434412
+heat_days_gt32,1.1670866728176297

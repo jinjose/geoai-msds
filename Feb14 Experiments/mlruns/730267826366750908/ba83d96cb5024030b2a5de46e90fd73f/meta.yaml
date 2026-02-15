@@ -1,0 +1,14 @@
+artifact_uri: file:///Users/jincyjose/PycharmProjects/453/Feb14 Experiments/mlruns/730267826366750908/ba83d96cb5024030b2a5de46e90fd73f/artifacts
+end_time: 1771148937857
+entry_point_name: ''
+experiment_id: '730267826366750908'
+lifecycle_stage: active
+run_id: ba83d96cb5024030b2a5de46e90fd73f
+run_name: Late Season Forecast
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1771148826564
+status: 3
+tags: []
+user_id: jincyjose

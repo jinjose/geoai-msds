@@ -1,0 +1,14 @@
+artifact_uri: file:///Users/jincyjose/PycharmProjects/453/Feb14 Experiments/mlruns/730267826366750908/c7725bf252494ad7b340ac3a33a9c1f3/artifacts
+end_time: 1771148910514
+entry_point_name: ''
+experiment_id: '730267826366750908'
+lifecycle_stage: active
+run_id: c7725bf252494ad7b340ac3a33a9c1f3
+run_name: LightGBM-nolag1_withcountyascategory
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1771148874885
+status: 3
+tags: []
+user_id: jincyjose

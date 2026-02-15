@@ -1,0 +1,14 @@
+artifact_uri: file:///Users/jincyjose/PycharmProjects/453/Feb14 Experiments/mlruns/730267826366750908/3bc78ca1b9964a72884f15c540daa9d7/artifacts
+end_time: 1771148826405
+entry_point_name: ''
+experiment_id: '730267826366750908'
+lifecycle_stage: active
+run_id: 3bc78ca1b9964a72884f15c540daa9d7
+run_name: LightGBM-limited_withcountyascategory
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1771148807851
+status: 3
+tags: []
+user_id: jincyjose

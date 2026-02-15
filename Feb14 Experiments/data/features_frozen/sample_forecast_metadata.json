@@ -1,0 +1,44 @@
+{
+  "forecast_stage": "Early Season Forecast",
+  "cutoff_date": "June 1",
+  "target_variable": "Final Annual County Yield (bu/acre)",
+  "temporal_alignment": {
+    "historical_yield_features": "Computed using prior years only (t-1 backward)",
+    "seasonal_weather_ndvi_features": "Aggregated from January 1 to June 1 of forecast year",
+    "data_leakage_guard": "No features use post-cutoff information"
+  },
+  "seasonal_window_definition": {
+    "start_date": "January 1 (forecast year)",
+    "end_date": "June 1 (forecast year)",
+    "aggregation_type": "Cumulative and summary statistics"
+  },
+  "feature_groups": {
+    "structural_memory_features": [
+      "lag1_yield",
+      "rolling_3yr_mean",
+      "yield_std_5yr",
+      "yield_trend_5yr"
+    ],
+    "ndvi_features_jan01_to_jun01": [
+      "ndvi_at_cutoff",
+      "ndvi_auc",
+      "ndvi_peak",
+      "day_of_peak_ndvi",
+      "ndvi_anomaly",
+      "ndvi_slope",
+      "ndvi_drop_rate"
+    ],
+    "weather_features_jan01_to_jun01": [
+      "heat_days_gt32",
+      "rain_sum_mm",
+      "rain_days",
+      "cumulative_gdd",
+      "temp_anomaly",
+      "water_balance_total_mm",
+      "et_rain_ratio",
+      "heat_rain_stress_idx",
+      "net_moisture_stress"
+    ]
+  },
+  "interpretation_note": "Seasonal signals reflect early-season crop conditions prior to major pollination period."
+}

@@ -1,0 +1,14 @@
+artifact_uri: file:///Users/jincyjose/PycharmProjects/453/Feb14 Experiments/mlruns/730267826366750908/a7ca5bafb65f42928186a61500a9be62/artifacts
+end_time: 1771148634442
+entry_point_name: ''
+experiment_id: '730267826366750908'
+lifecycle_stage: active
+run_id: a7ca5bafb65f42928186a61500a9be62
+run_name: Early Season Forecast
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1771148552463
+status: 3
+tags: []
+user_id: jincyjose

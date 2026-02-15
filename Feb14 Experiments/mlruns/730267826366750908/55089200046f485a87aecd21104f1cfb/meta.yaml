@@ -1,0 +1,14 @@
+artifact_uri: file:///Users/jincyjose/PycharmProjects/453/Feb14 Experiments/mlruns/730267826366750908/55089200046f485a87aecd21104f1cfb/artifacts
+end_time: 1771148648512
+entry_point_name: ''
+experiment_id: '730267826366750908'
+lifecycle_stage: active
+run_id: 55089200046f485a87aecd21104f1cfb
+run_name: Ridge
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1771148648473
+status: 3
+tags: []
+user_id: jincyjose

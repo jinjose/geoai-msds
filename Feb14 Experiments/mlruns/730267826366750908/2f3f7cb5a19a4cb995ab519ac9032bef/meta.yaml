@@ -1,0 +1,14 @@
+artifact_uri: file:///Users/jincyjose/PycharmProjects/453/Feb14 Experiments/mlruns/730267826366750908/2f3f7cb5a19a4cb995ab519ac9032bef/artifacts
+end_time: 1771148874884
+entry_point_name: ''
+experiment_id: '730267826366750908'
+lifecycle_stage: active
+run_id: 2f3f7cb5a19a4cb995ab519ac9032bef
+run_name: LightGBM-No-Lag
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1771148839769
+status: 3
+tags: []
+user_id: jincyjose

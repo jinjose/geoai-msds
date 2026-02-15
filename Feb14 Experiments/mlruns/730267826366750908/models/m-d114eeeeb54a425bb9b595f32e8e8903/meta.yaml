@@ -1,0 +1,10 @@
+artifact_location: file:///Users/jincyjose/PycharmProjects/453/Feb14 Experiments/mlruns/730267826366750908/models/m-d114eeeeb54a425bb9b595f32e8e8903/artifacts
+creation_timestamp: 1771148631423
+experiment_id: '730267826366750908'
+last_updated_timestamp: 1771148633271
+model_id: m-d114eeeeb54a425bb9b595f32e8e8903
+model_type: null
+name: model
+source_run_id: 782a99f3e1a14473b4a11291227a0cd4
+status: 2
+status_message: null
