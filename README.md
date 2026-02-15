@@ -23,19 +23,10 @@
 
 1.  The dataset is stored in **Google Drive**.
 2.  Download the data from Google Drive.
-3.  Copy raw files into:
-
-```{=html}
-```
-    data/raw/
+3.  Copy raw files into: data/raw/
 
 4.  After running feature engineering, the processed datasets will be
-    saved in:
-
-```{=html}
-<!-- -->
-```
-    data/frozen/
+    saved in: data/frozen/
 
 ------------------------------------------------------------------------
 
