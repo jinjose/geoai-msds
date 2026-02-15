@@ -1,7 +1,5 @@
 # GEOAI corn field prediction
 
-# Iowa Yield Forecasting Project
-
 ## Project Structure
 
     project_root/
