@@ -1,0 +1,15 @@
+artifact_uri: file:///Users/jincyjose/PycharmProjects/453/old_capstone/Feb22 Final
+  Experiments/mlruns/351630832061353215/ed28f752b30b413ba23cc98ca14a7d80/artifacts
+end_time: 1771905171336
+entry_point_name: ''
+experiment_id: '351630832061353215'
+lifecycle_stage: active
+run_id: ed28f752b30b413ba23cc98ca14a7d80
+run_name: Early Season Forecast
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1771905150919
+status: 4
+tags: []
+user_id: jincyjose

@@ -1,0 +1,15 @@
+artifact_uri: file:///Users/jincyjose/PycharmProjects/453/old_capstone/Feb22 Final
+  Experiments/mlruns/351630832061353215/a85738c11f054248adaf25ee7958a996/artifacts
+end_time: 1771902547641
+entry_point_name: ''
+experiment_id: '351630832061353215'
+lifecycle_stage: active
+run_id: a85738c11f054248adaf25ee7958a996
+run_name: LightGBM-tuned_withoutstorm
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1771902534263
+status: 3
+tags: []
+user_id: jincyjose

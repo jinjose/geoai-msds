@@ -1,0 +1,15 @@
+artifact_uri: file:///Users/jincyjose/PycharmProjects/453/old_capstone/Feb22 Final
+  Experiments/mlruns/351630832061353215/8d7e64e76251414d958cfc6c56d8a24f/artifacts
+end_time: 1771902709490
+entry_point_name: ''
+experiment_id: '351630832061353215'
+lifecycle_stage: active
+run_id: 8d7e64e76251414d958cfc6c56d8a24f
+run_name: Ridge
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1771902709013
+status: 3
+tags: []
+user_id: jincyjose

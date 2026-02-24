@@ -1,0 +1,12 @@
+{
+  "features": [
+    "rolling_3yr_mean",
+    "ndvi_peak",
+    "ndvi_slope",
+    "temp_anomaly",
+    "net_moisture_stress",
+    "heat_days_gt32"
+  ],
+  "cutoff": "aug15",
+  "model_type": "Ridge"
+}

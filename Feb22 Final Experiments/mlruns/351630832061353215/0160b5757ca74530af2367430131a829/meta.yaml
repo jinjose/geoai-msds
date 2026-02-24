@@ -1,0 +1,15 @@
+artifact_uri: file:///Users/jincyjose/PycharmProjects/453/old_capstone/Feb22 Final
+  Experiments/mlruns/351630832061353215/0160b5757ca74530af2367430131a829/artifacts
+end_time: 1771900703834
+entry_point_name: ''
+experiment_id: '351630832061353215'
+lifecycle_stage: active
+run_id: 0160b5757ca74530af2367430131a829
+run_name: Lag-1 Baseline
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1771900703809
+status: 3
+tags: []
+user_id: jincyjose

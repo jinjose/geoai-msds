@@ -1,0 +1,11 @@
+artifact_location: file:///Users/jincyjose/PycharmProjects/453/old_capstone/Feb22
+  Final Experiments/mlruns/351630832061353215/models/m-f1fcdad7ef974b61a969caefb3e80fd2/artifacts
+creation_timestamp: 1771905299903
+experiment_id: '351630832061353215'
+last_updated_timestamp: 1771905301560
+model_id: m-f1fcdad7ef974b61a969caefb3e80fd2
+model_type: null
+name: model
+source_run_id: 3931f2777031429e86677915471f4bde
+status: 2
+status_message: null

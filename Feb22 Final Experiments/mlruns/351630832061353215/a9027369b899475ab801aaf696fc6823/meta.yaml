@@ -1,0 +1,15 @@
+artifact_uri: file:///Users/jincyjose/PycharmProjects/453/old_capstone/Feb22 Final
+  Experiments/mlruns/351630832061353215/a9027369b899475ab801aaf696fc6823/artifacts
+end_time: 1771901102398
+entry_point_name: ''
+experiment_id: '351630832061353215'
+lifecycle_stage: active
+run_id: a9027369b899475ab801aaf696fc6823
+run_name: Late Mid Season Forecast
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1771901076225
+status: 3
+tags: []
+user_id: jincyjose
