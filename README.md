@@ -1,19 +1,35 @@
 # GEOAI corn field prediction
 
+ ``` Download this shape file from internet tl_2023_us_county.shp``` and place it under raw_dataprep
+### Important  Commands
+```mlflow ui --port 5050 --backend-store-uri "./Feb22 Final Experiments/mlruns"```
+
+```python dataprep/weather_era5.py --mode live, historical ```
+
+```python dataprep/ndvi_croplevel.py --mode live, historical```
+
+```python src/build_new_features.py --mode live, historical ``` 
+
 ## Project Structure
 
-    project_root/
-    │
-    ├── data/
-    │   ├── raw/              # Raw input data (copied from Google Drive)
-    │   └── frozen/           # Feature-engineered datasets (feature_frozen)
-    │
-    ├── src/
-    │   ├── models/           # All model definitions and experiments
-    │   ├── build_new_features.py
-    │   └── train.py
-    │
-    └── mlruns/               # MLflow experiment tracking
+```
+.
+├── exported_models/        # Final selected models per cutoff
+├── mlruns/                 # MLflow experiment tracking directory
+├── plots/                  # Auto-generated comparison plots
+├── raw_dataprep/           # Raw preprocessing outputs
+├── src/
+│   ├── analysis/           # Plotting, SHAP, comparison utilities
+│   ├── features/           # Feature engineering logic
+│   ├── models/             # All model training functions
+│   ├── build_new_features.py
+│   ├── config.py
+│   ├── train.py            # Main training + model selection script
+│   └── utils.py
+├── training-dataset/
+│   ├── features_frozen/    # Cutoff-specific frozen feature files
+│   └── raw/                # Raw source data
+```
 
 ------------------------------------------------------------------------
 
@@ -21,13 +37,12 @@
 
 1.  The dataset is stored in **Google Drive**.
 2.  Download the data from Google Drive.
-3.  Copy raw files into: data/raw/
-
+3.  Copy raw files into: training-dataset/raw/
 4.  After running feature engineering, the processed datasets will be
-    saved in: data/frozen/
+    saved in: training-dataset/features-frozen/
 
 ------------------------------------------------------------------------
- 
+
 ## Feature Engineering
 
 To generate new feature sets:
@@ -88,11 +103,6 @@ MLflow will show:
 -   Comparison plots
 -   Artifacts and logs
 
-------------------------------------------------------------------------
 
-## Key Directories Summary
-
--   `data/raw/` → Raw Google Drive data\
--   `data/frozen/` → Final feature-engineered datasets\
--   `src/models/` → Model implementations\
--   `mlruns/` → MLflow tracking
+Results:
+![img.png](img.png)
