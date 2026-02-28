@@ -30,7 +30,7 @@ HEADERS = {
 
 REQUEST_TIMEOUT = 10
 
-IOWA_COUNTY_SHP = "tl_2023_us_county.shp"  # Update path if needed
+IOWA_COUNTY_SHP = "tl_2023_us_county.shp"  # Update path if needed Also keep the .dbf abd .shx file
 
 
 # --------------------------------------------------
@@ -216,6 +216,6 @@ if __name__ == "__main__":
 
     logger.info("Starting Iowa storm ingestion...")
 
-    station_level, county_level, raw_df = fetch_iowa_today_gusts(threshold_mph=90)
+    station_level, county_level, raw_df = fetch_iowa_today_gusts(threshold_mph=58)
 
     logger.info("Done.")

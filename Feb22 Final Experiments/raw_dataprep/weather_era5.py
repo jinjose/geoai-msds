@@ -6,7 +6,7 @@ import argparse
 # -----------------------------------------------------------
 # CONFIG
 # -----------------------------------------------------------
-PROJECT_ID = "premium-silicon-228618"
+PROJECT_ID = "XXXXXX"
 
 HIST_START_YEAR = 2012
 HIST_END_YEAR = 2024

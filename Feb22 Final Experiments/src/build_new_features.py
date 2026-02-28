@@ -211,4 +211,4 @@ for cutoff_name, (month, day) in FORECAST_CUTOFFS.items():
 
     print(f"Saved to {out_path}")
 
-print("\nFeature generation complete.")
+print("Feature generation complete.")

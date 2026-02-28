@@ -61,7 +61,6 @@ def clean_ndvi(ndvi_raw, min_points_per_county_year=6, strict=True):
 
     df["date"] = pd.to_datetime(df["date"], errors="coerce")
     df["year"] = df["date"].dt.year
-
     df["NDVI"] = pd.to_numeric(df["NDVI"], errors="coerce")
 
     df = df.dropna(subset=["county_name", "date", "year", "NDVI"])
@@ -91,7 +90,7 @@ def clean_ndvi(ndvi_raw, min_points_per_county_year=6, strict=True):
 
 
 # ============================================================
-# NDVI SMOOTHING
+# NDVI SMOOTHING (UPDATED)
 # ============================================================
 def smooth_county_ndvi(df, window=9, poly=2):
 
@@ -108,7 +107,13 @@ def smooth_county_ndvi(df, window=9, poly=2):
 
         return group
 
-    return df.groupby(["county", "year"], group_keys=False).apply(_apply_sg)
+    return (
+        df
+        .sort_values(["county", "year", "date"])
+        .groupby(["county", "year"], group_keys=False)
+        .apply(_apply_sg, include_groups=False)  # <-- FIXED
+        .reset_index(drop=True)
+    )
 
 
 # ============================================================
@@ -148,6 +153,7 @@ def clean_weather(
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce")
 
+    # Kelvin to Celsius safety check
     for col in ["temperature", "dewpoint_temperature"]:
         if col in df.columns and df[col].mean(skipna=True) > 100:
             df[col] = df[col] - 273.15
@@ -236,7 +242,6 @@ def enforce_intersection_lenient(yield_df, ndvi_df, wx_df):
     ndvi_df = ndvi_df.copy()
     wx_df = wx_df.copy()
 
-    # Only require NDVI + weather to align with yield
     counties = (
         set(yield_df["county"]) &
         set(ndvi_df["county"]) &
