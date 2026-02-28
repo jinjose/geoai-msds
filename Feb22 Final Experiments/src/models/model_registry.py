@@ -1,7 +1,6 @@
 from .lag1_baseline_mlflow import run_lag1_baseline
 from .ridge_mlflow import run_ridge
 from .lightbgm_withlimited_withstorm import run_lightgbm_limited_features_storm
-from .lightbgm_tuned_withoutstorm import run_lightgbm_limited_features_without_storm
 
 # ============================================================
 # MODEL EXPERIMENT REGISTRY
@@ -33,25 +32,7 @@ MODEL_CONFIGS = [
     },
 
     # # ------------------------------------------------------------
-    # # 2. LightGBM with Lag (Full Structural + Seasonal Model)
-    # # ------------------------------------------------------------
-    # # Purpose:
-    # #   Combines persistence (lag1_yield) with NDVI + weather signals.
-    # #
-    # # Hypothesis:
-    # #   Tree-based model captures nonlinear seasonal interactions
-    # #   beyond pure persistence.
-    # #
-    # # Interpretation:
-    # #   This is the strongest predictive model but may lean heavily
-    # #   on lag dominance.
-    # # ------------------------------------------------------------
-    # {
-    #     "name": "LightGBM-lag",
-    #     "func": run_lightgbm_mlflow,
-    #     "enabled": False,
-    #     "metric_cols": ["mae", "rmse", "mape", "r2"],
-    # },
+
 
     # ------------------------------------------------------------
     # 3. Ridge Regression (Linear Benchmark)
@@ -73,45 +54,6 @@ MODEL_CONFIGS = [
         "metric_cols": ["mae", "rmse", "mape", "r2"],
     },
 
-    # # ------------------------------------------------------------
-    # # 4. LightGBM WITHOUT Lag
-    # # ------------------------------------------------------------
-    # # Purpose:
-    # #   Remove persistence entirely.
-    # #
-    # # Hypothesis:
-    # #   NDVI + weather alone can explain meaningful seasonal variance.
-    # #
-    # # Interpretation:
-    # #   Directly tests whether model is just a disguised lag model.
-    # # ------------------------------------------------------------
-    # {
-    #     "name": "LightGBM-No-Lag",
-    #     "func": run_lightgbm_no_lag_mlflow,
-    #     "enabled": False,
-    #     "metric_cols": ["mae", "rmse", "mape", "r2"],
-    # },
-
-    # ------------------------------------------------------------
-    # 5. LightGBM WITHOUT Lag + County as Categorical
-    # ------------------------------------------------------------
-    # Purpose:
-    #   Remove lag but allow model to learn structural county baseline.
-    #
-    # Hypothesis:
-    #   Structural spatial differences can replace explicit lag signal.
-    #
-    # Interpretation:
-    #   Cleaner decomposition:
-    #     Structural component → county
-    #     Seasonal component → NDVI + weather
-    # # ------------------------------------------------------------
-    # {
-    #     "name": "LightGBM-nolag1_withcountyascategory",
-    #     "func": run_lightgbm_no_lag_mlflow_county,
-    #     "enabled": False,
-    #     "metric_cols": ["mae", "rmse", "mape", "r2"],
-    # },
 
     # # ------------------------------------------------------------
     # # 6. LightGBM Limited Features (Orthogonal Signal Model)
@@ -126,7 +68,8 @@ MODEL_CONFIGS = [
     # #   - ndvi_slope (growth velocity)
     # #   - temp_anomaly (heat stress)
     # #   - net_moisture_stress (water imbalance)
-    # #   - heat_days_gt32 It is actually 29 will be renamed later
+    # #   - heat_days_gt32
+    # #   - wind_severe_days_58_cutoff
     # #
     # # Hypothesis:
     # #   Cleaner signals → better generalization and lower overfitting.
@@ -134,22 +77,10 @@ MODEL_CONFIGS = [
     # # Interpretation:
     # #   Tests whether complexity reduction improves robustness.
     # # ------------------------------------------------------------
-    # {
-    #     "name": "LightGBM-limited_withoutstorm",
-    #     "func": run_lightgbm_limited_features_mlflow,
-    #     "enabled": True,
-    #     "metric_cols": ["mae", "rmse", "mape", "r2"],
-    # },
 {
         "name": "LightGBM-limited_withstorm",
         "func": run_lightgbm_limited_features_storm,
         "enabled": True,
-        "metric_cols": ["mae", "rmse", "mape", "r2"],
-    },
-{
-        "name": "LightGBM-limited_withoutstorm",
-        "func": run_lightgbm_limited_features_without_storm,
-        "enabled": False,
         "metric_cols": ["mae", "rmse", "mape", "r2"],
     },
 ]

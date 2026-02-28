@@ -90,7 +90,7 @@ def clean_ndvi(ndvi_raw, min_points_per_county_year=6, strict=True):
 
 
 # ============================================================
-# NDVI SMOOTHING (UPDATED)
+# NDVI SMOOTHING (FIXED VERSION)
 # ============================================================
 def smooth_county_ndvi(df, window=9, poly=2):
 
@@ -107,11 +107,12 @@ def smooth_county_ndvi(df, window=9, poly=2):
 
         return group
 
+    # IMPORTANT FIX: removed include_groups=False
     return (
         df
         .sort_values(["county", "year", "date"])
         .groupby(["county", "year"], group_keys=False)
-        .apply(_apply_sg, include_groups=False)  # <-- FIXED
+        .apply(_apply_sg)
         .reset_index(drop=True)
     )
 
