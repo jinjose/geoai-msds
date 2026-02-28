@@ -2,6 +2,7 @@
 
  ``` Download this shape file from internet tl_2023_us_county.shp``` and place it under raw_dataprep
 ### Important  Commands
+
 ```mlflow ui --port 5050 --backend-store-uri "./Feb22 Final Experiments/mlruns"```
 
 ```python dataprep/weather_era5.py --mode live, historical ```
@@ -10,6 +11,7 @@
 
 ```python src/build_new_features.py --mode live, historical ``` 
 
+``` pytest --html=report.html --self-contained-html -o log_cli=true --log-cli-level=INFO``` 
 ## Project Structure
 
 ```
