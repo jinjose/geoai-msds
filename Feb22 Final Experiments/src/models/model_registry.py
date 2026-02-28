@@ -1,7 +1,7 @@
-from .lag1_baseline_mlflow import run_lag1_baseline_mlflow
-from .ridge_mlflow import run_ridge_mlflow
+from .lag1_baseline_mlflow import run_lag1_baseline
+from .ridge_mlflow import run_ridge
 from .lightbgm_withlimited_withstorm import run_lightgbm_limited_features_storm
-from .lightbgm_tuned_withoutstorm import run_lightgbm_tuned_withoutstorm
+from .lightbgm_tuned_withoutstorm import run_lightgbm_limited_features_without_storm
 
 # ============================================================
 # MODEL EXPERIMENT REGISTRY
@@ -27,7 +27,7 @@ MODEL_CONFIGS = [
     # ------------------------------------------------------------
     {
         "name": "Lag-1 Baseline",
-        "func": run_lag1_baseline_mlflow,
+        "func": run_lag1_baseline,
         "enabled": True,
         "metric_cols": ["mae", "rmse", "mape", "r2"],
     },
@@ -68,11 +68,7 @@ MODEL_CONFIGS = [
     # ------------------------------------------------------------
     {
         "name": "Ridge",
-        "func": lambda df, cutoff: run_ridge_mlflow(
-            df,
-            cutoff,
-            alpha=1.0,
-        ),
+        "func": lambda df, cutoff: run_ridge(df, cutoff_key=cutoff, alpha=1.0),
         "enabled": True,
         "metric_cols": ["mae", "rmse", "mape", "r2"],
     },
@@ -151,9 +147,9 @@ MODEL_CONFIGS = [
         "metric_cols": ["mae", "rmse", "mape", "r2"],
     },
 {
-        "name": "LightGBM-tuned_withoutstorm",
-        "func": run_lightgbm_tuned_withoutstorm,
-        "enabled": True,
+        "name": "LightGBM-limited_withoutstorm",
+        "func": run_lightgbm_limited_features_without_storm,
+        "enabled": False,
         "metric_cols": ["mae", "rmse", "mape", "r2"],
     },
 ]

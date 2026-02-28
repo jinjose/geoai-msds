@@ -16,6 +16,6 @@ flavors:
 mlflow_version: 3.10.0
 model_id: null
 model_size_bytes: 1484421
-model_uuid: b66f467b858d49878f3f02264886a97a
+model_uuid: dae6970825f844ce8810deb6d7ab5db5
 prompts: null
-utc_time_created: '2026-02-24 03:53:32.306977'
+utc_time_created: '2026-02-28 08:15:59.157721'

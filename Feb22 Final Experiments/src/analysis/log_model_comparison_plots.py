@@ -1,112 +1,94 @@
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 import mlflow
 from pathlib import Path
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 
 def log_comparison_plots(results: dict, forecast_stage: str):
+    """
+    results: dict[str, prediction_df]
+    prediction_df must contain:
+    ['county', 'year', 'y_true', 'y_pred']
+    """
 
     plots_dir = Path("plots")
     plots_dir.mkdir(exist_ok=True)
 
     safe_name = forecast_stage.lower().replace(" ", "_")
 
-    # --------------------------------------------------
-    # Collect all unique years across models
-    # --------------------------------------------------
-    all_years = sorted(
-        set().union(*[
-            set(df["year"].unique())
-            for df in results.values()
-            if not df.empty and "year" in df.columns
-        ])
+    # ======================================================
+    # Compute metrics for all models
+    # ======================================================
+    comparison_rows = []
+
+    for model_name, pred_df in results.items():
+
+        if pred_df.empty:
+            continue
+
+        y_true = pred_df["y_true"].to_numpy()
+        y_pred = pred_df["y_pred"].to_numpy()
+
+        mae = float(mean_absolute_error(y_true, y_pred))
+        rmse = float(np.sqrt(mean_squared_error(y_true, y_pred)))
+        r2 = float(r2_score(y_true, y_pred))
+        mape = float(
+            np.mean(
+                np.abs((y_true - y_pred) / np.clip(y_true, 1e-6, None))
+            ) * 100
+        )
+
+        comparison_rows.append({
+            "model": model_name,
+            "mae": mae,
+            "rmse": rmse,
+            "mape": mape,
+            "r2": r2,
+            "n_samples": len(pred_df)
+        })
+
+        # Log metrics
+        mlflow.log_metric(f"{model_name.lower()}_mae", mae)
+        mlflow.log_metric(f"{model_name.lower()}_rmse", rmse)
+        mlflow.log_metric(f"{model_name.lower()}_mape", mape)
+        mlflow.log_metric(f"{model_name.lower()}_r2", r2)
+        mlflow.log_metric(f"{model_name.lower()}_n", len(pred_df))
+
+    comparison_df = (
+        pd.DataFrame(comparison_rows)
+        .sort_values("rmse")
+        .reset_index(drop=True)
     )
 
-    # ==================================================
-    # MAE PLOT
-    # ==================================================
-    plt.figure(figsize=(10, 6))
-    for model_name, df in results.items():
-        if df.empty:
-            continue
-        if "mae" in df.columns:
-            plt.plot(df["year"], df["mae"], marker="o", label=model_name)
-    if all_years:
-        plt.xticks(all_years, rotation=45)
-    plt.xlabel("Test Year")
-    plt.ylabel("Mean Absolute Error (bu/acre)")
-    plt.title(f"MAE Comparison – {forecast_stage}")
-    plt.legend(bbox_to_anchor=(1.05, 1), loc="upper left")
-    plt.grid(True)
-    plt.tight_layout()
-    mae_path = plots_dir / f"mae_comparison_{safe_name}.png"
-    plt.savefig(mae_path, bbox_inches="tight")
-    plt.close()
-    mlflow.log_artifact(str(mae_path), artifact_path="plots")
+    # Log comparison table
+    mlflow.log_table(comparison_df, "model_comparison.json")
 
-    # ==================================================
-    # RMSE PLOT
-    # ==================================================
-    plt.figure(figsize=(10, 6))
-    for model_name, df in results.items():
-        if df.empty:
-            continue
-        if "rmse" in df.columns:
-            plt.plot(df["year"], df["rmse"], marker="o", label=model_name)
-    if all_years:
-        plt.xticks(all_years, rotation=45)
-    plt.xlabel("Test Year")
-    plt.ylabel("Root Mean Squared Error (bu/acre)")
-    plt.title(f"RMSE Comparison – {forecast_stage}")
-    plt.legend(bbox_to_anchor=(1.05, 1), loc="upper left")
-    plt.grid(True)
-    plt.tight_layout()
-    rmse_path = plots_dir / f"rmse_comparison_{safe_name}.png"
-    plt.savefig(rmse_path, bbox_inches="tight")
-    plt.close()
-    mlflow.log_artifact(str(rmse_path), artifact_path="plots")
+    print("\n=== Model Comparison ===")
+    print(comparison_df)
 
-    # ==================================================
-    # MAPE PLOT
-    # ==================================================
-    plt.figure(figsize=(10, 6))
-    for model_name, df in results.items():
-        if df.empty:
-            continue
-        if "mape" in df.columns:
-            plt.plot(df["year"], df["mape"], marker="o", label=model_name)
-    if all_years:
-        plt.xticks(all_years, rotation=45)
-    plt.xlabel("Test Year")
-    plt.ylabel("Mean Absolute Percentage Error (%)")
-    plt.title(f"MAPE Comparison – {forecast_stage}")
-    plt.legend(bbox_to_anchor=(1.05, 1), loc="upper left")
-    plt.grid(True)
-    plt.tight_layout()
-    mape_path = plots_dir / f"mape_comparison_{safe_name}.png"
-    plt.savefig(mape_path, bbox_inches="tight")
-    plt.close()
-    mlflow.log_artifact(str(mape_path), artifact_path="plots")
+    # ======================================================
+    # Create Bar Plots
+    # ======================================================
+    metrics = ["mae", "rmse", "mape", "r2"]
 
-    # ==================================================
-    # R2 PLOT (NEW)
-    # ==================================================
-    plt.figure(figsize=(10, 6))
-    for model_name, df in results.items():
-        if df.empty:
-            continue
-        if "r2" in df.columns:
-            plt.plot(df["year"], df["r2"], marker="o", label=model_name)
-    if all_years:
-        plt.xticks(all_years, rotation=45)
-    plt.xlabel("Test Year")
-    plt.ylabel("R² Score")
-    plt.title(f"R² Comparison – {forecast_stage}")
-    plt.axhline(y=0, linestyle="--", alpha=0.5)  # zero reference line
-    plt.legend(bbox_to_anchor=(1.05, 1), loc="upper left")
-    plt.grid(True)
-    plt.tight_layout()
-    r2_path = plots_dir / f"r2_comparison_{safe_name}.png"
-    plt.savefig(r2_path, bbox_inches="tight")
-    plt.close()
-    mlflow.log_artifact(str(r2_path), artifact_path="plots")
+    for metric in metrics:
+
+        plt.figure(figsize=(8, 5))
+
+        plt.bar(
+            comparison_df["model"],
+            comparison_df[metric]
+        )
+
+        plt.title(f"{metric.upper()} Comparison – {forecast_stage}")
+        plt.ylabel(metric.upper())
+        plt.grid(axis="y", alpha=0.3)
+
+        plot_path = plots_dir / f"{metric}_comparison_{safe_name}.png"
+        plt.tight_layout()
+        plt.savefig(plot_path)
+        plt.close()
+
+        mlflow.log_artifact(str(plot_path), artifact_path="plots")

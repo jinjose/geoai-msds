@@ -26,6 +26,7 @@
 │   ├── config.py
 │   ├── train.py            # Main training + model selection script
 │   └── utils.py
+│   └── tests               # Unittest
 ├── training-dataset/
 │   ├── features_frozen/    # Cutoff-specific frozen feature files
 │   └── raw/                # Raw source data

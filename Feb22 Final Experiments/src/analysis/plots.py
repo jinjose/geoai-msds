@@ -98,7 +98,7 @@ def log_county_yield_forecast(pred_df, county_name, model_name):
     ax.set_ylim(y_min, y_max)
 
     ax.set_title(
-        f"Yield Risk Detection: {county_name.title()} (Focus: 2019-2024)",
+        f"Yield Prediction for: {county_name.title()} (Focus: 2019-2024)",
         fontsize=15,
         fontweight='bold',
         pad=15

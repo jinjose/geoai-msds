@@ -11,7 +11,7 @@ def log_shap_year_contrast(
     years: pd.Series,
     cutoff_name: str,
     model_name: str,
-    year_a: int = 2023,
+    year_a: int = 2020,
     year_b: int = 2024,
     stress_features=None,
     top_n: int = 10,
