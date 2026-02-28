@@ -13,10 +13,10 @@ Global configuration for Iowa corn yield capstone
 #
 FORECAST_CUTOFFS = {
     "jun01": (6, 1),
-    "jul01": (7, 1),
+    # "jul01": (7, 1),
     "jul15": (7, 15),
     "aug01": (8, 1),
-    "aug15": (8, 15)
+    # "aug15": (8, 15)
 }
 
 # =========================================

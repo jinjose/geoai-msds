@@ -4,13 +4,20 @@ import mlflow.lightgbm
 import mlflow.sklearn
 from pathlib import Path
 import numpy as np
+import json
 
 from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
+
+from config import FORECAST_CUTOFFS
+from models.model_registry import MODEL_CONFIGS
+from analysis.plots import log_county_yield_forecast
+from analysis.log_model_comparison_plots import log_comparison_plots
 
 
 # ============================================================
 # PROJECT ROOT
 # ============================================================
+
 def find_project_root(start: Path) -> Path:
     for p in [start.resolve()] + list(start.resolve().parents):
         if (p / "src").exists():
@@ -23,28 +30,21 @@ FEATURE_DIR = PROJECT_ROOT / "training-dataset" / "features_frozen"
 EXPORT_DIR = PROJECT_ROOT / "exported_models"
 EXPORT_DIR.mkdir(parents=True, exist_ok=True)
 
-from config import FORECAST_CUTOFFS
-from models.model_registry import MODEL_CONFIGS
-from analysis.plots import log_county_yield_forecast
-from analysis.log_model_comparison_plots import log_comparison_plots
-
-
 # ============================================================
 # SETTINGS
 # ============================================================
+
 CUTOFF_STAGE_MAP = {
     "jun01": "Early Season Forecast",
-    "jul01": "Early Mid Season Forecast",
-    "jul15": "Mid Season Forecast",
-    "aug01": "Late Mid Season Forecast",
-    "aug15": "Actual Late Season Forecast",
+    "jul01": "Mid Season Forecast",
+    "aug01": "Late Season Forecast",
 }
 
 TARGET_COUNTIES = ["Boone", "Benton", "Marshall", "plymouth", "wayne", "appanoose"]
 
 MLRUNS_DIR = PROJECT_ROOT / "mlruns"
 mlflow.set_tracking_uri(f"file:{MLRUNS_DIR}")
-mlflow.set_experiment("iowa_corn_yield_forecasting_feb23")
+mlflow.set_experiment("iowa_corn_yield_forecasting_feb28")
 
 
 def _is_lightgbm_model(model) -> bool:
@@ -69,6 +69,7 @@ def _sanitize_name(s: str) -> str:
 # ============================================================
 # MAIN TRAINING LOOP
 # ============================================================
+
 for cutoff_key in FORECAST_CUTOFFS.keys():
 
     if cutoff_key not in CUTOFF_STAGE_MAP:
@@ -102,23 +103,22 @@ for cutoff_key in FORECAST_CUTOFFS.keys():
 
                 result = model_cfg["func"](feature_df, cutoff_key)
 
-                yearly_df = None
                 pred_df = None
                 final_model = None
 
                 if isinstance(result, tuple):
                     if len(result) >= 1:
-                        yearly_df = result[0]
+                        pred_df = result[0]
                     if len(result) >= 2:
-                        pred_df = result[1]
-                    if len(result) >= 3:
-                        final_model = result[2]
+                        final_model = result[1]
+                else:
+                    pred_df = result
 
                 if pred_df is None or pred_df.empty:
                     continue
 
                 # ------------------------------------------------
-                # Overall performance metrics
+                # Overall Performance Metrics
                 # ------------------------------------------------
                 overall_r2 = float(r2_score(pred_df["y_true"], pred_df["y_pred"]))
                 overall_rmse = float(
@@ -141,11 +141,12 @@ for cutoff_key in FORECAST_CUTOFFS.keys():
                 mlflow.log_metric("val_mae", overall_mae)
                 mlflow.log_metric("val_mape", overall_mape)
 
+                # County-level forecast plots
                 for county in TARGET_COUNTIES:
                     log_county_yield_forecast(pred_df, county, model_name)
 
                 results_dict[model_name] = {
-                    "yearly_df": yearly_df,
+                    "pred_df": pred_df,
                     "rmse": overall_rmse,
                     "r2": overall_r2,
                     "mae": overall_mae,
@@ -211,18 +212,10 @@ for cutoff_key in FORECAST_CUTOFFS.keys():
 
                 print(f"[OK] Exported best model for {cutoff_key} to: {export_path}")
 
-                import json
-
-                # --------------------------------------------------
-                # GET FEATURE NAMES DIRECTLY FROM MODEL
-                # --------------------------------------------------
-
                 if hasattr(best_final_model, "feature_name_"):
                     expected_features = list(best_final_model.feature_name_)
-
                 elif hasattr(best_final_model, "feature_names_in_"):
                     expected_features = list(best_final_model.feature_names_in_)
-
                 else:
                     raise ValueError(
                         f"Model {best_model_name} does not expose feature names."
@@ -242,13 +235,14 @@ for cutoff_key in FORECAST_CUTOFFS.keys():
                     json.dump(feature_schema, f, indent=4)
 
                 print(f"[OK] Saved feature schema to: {schema_path}")
+
         # ====================================================
-        # PLOTS
+        # COMPARISON PLOTS
         # ====================================================
         plot_input = {
-            model_name: metrics["yearly_df"]
+            model_name: metrics["pred_df"]
             for model_name, metrics in results_dict.items()
-            if metrics["yearly_df"] is not None and not metrics["yearly_df"].empty
+            if metrics["pred_df"] is not None and not metrics["pred_df"].empty
         }
 
         log_comparison_plots(results=plot_input, forecast_stage=forecast_stage)
