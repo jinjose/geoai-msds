@@ -1,0 +1,157 @@
+{
+  "IngestionImageUri": "172023108179.dkr.ecr.ap-south-1.amazonaws.com/geoai-demo-ingestion:latest",
+  "FeatureImageUri": "172023108179.dkr.ecr.ap-south-1.amazonaws.com/geoai-demo-feature:latest",
+  "InferenceImageUri": "Login Succeeded
+==> Building geoai-demo-inference:latest from /d/MS_DataScience/MSDS_498_Capstone_Final/GIT/geoai-msds/inference_prodstyle/containers/inference_container
+[1A[1B[0G[?25l[+] Building 0.0s (0/0)  docker:desktop-linux
+[?25h[1A[0G[?25l[+] Building 0.0s (0/0)  docker:desktop-linux
+[?25h[1A[0G[?25l[+] Building 0.0s (0/0)  docker:desktop-linux
+[?25h[1A[0G[?25l[+] Building 0.0s (0/1)                                    docker:desktop-linux
+[?25h[1A[0G[?25l[+] Building 0.2s (1/2)                                    docker:desktop-linux
+[36m => [internal] load build definition from Dockerfile                       0.0s
+[0m[36m => => transferring dockerfile: 648B                                       0.0s
+[0m => [internal] load metadata for docker.io/library/python:3.10-slim        0.2s
+[?25h[1A[1A[1A[1A[0G[?25l[+] Building 0.4s (1/2)                                    docker:desktop-linux
+[36m => [internal] load build definition from Dockerfile                       0.0s
+[0m[36m => => transferring dockerfile: 648B                                       0.0s
+[0m => [internal] load metadata for docker.io/library/python:3.10-slim        0.3s
+[?25h[1A[1A[1A[1A[0G[?25l[+] Building 0.5s (1/2)                                    docker:desktop-linux
+[36m => [internal] load build definition from Dockerfile                       0.0s
+[0m[36m => => transferring dockerfile: 648B                                       0.0s
+[0m => [internal] load metadata for docker.io/library/python:3.10-slim        0.5s
+[?25h[1A[1A[1A[1A[0G[?25l[+] Building 0.7s (1/2)                                    docker:desktop-linux
+[36m => [internal] load build definition from Dockerfile                       0.0s
+[0m[36m => => transferring dockerfile: 648B                                       0.0s
+[0m => [internal] load metadata for docker.io/library/python:3.10-slim        0.6s
+[?25h[1A[1A[1A[1A[0G[?25l[+] Building 0.8s (1/2)                                    docker:desktop-linux
+[36m => [internal] load build definition from Dockerfile                       0.0s
+[0m[36m => => transferring dockerfile: 648B                                       0.0s
+[0m => [internal] load metadata for docker.io/library/python:3.10-slim        0.8s
+[?25h[1A[1A[1A[1A[0G[?25l[+] Building 1.0s (1/2)                                    docker:desktop-linux
+[36m => [internal] load build definition from Dockerfile                       0.0s
+[0m[36m => => transferring dockerfile: 648B                                       0.0s
+[0m => [internal] load metadata for docker.io/library/python:3.10-slim        0.9s
+[?25h[1A[1A[1A[1A[0G[?25l[+] Building 1.1s (1/2)                                    docker:desktop-linux
+[36m => [internal] load build definition from Dockerfile                       0.0s
+[0m[36m => => transferring dockerfile: 648B                                       0.0s
+[0m => [internal] load metadata for docker.io/library/python:3.10-slim        1.1s
+[?25h[1A[1A[1A[1A[0G[?25l[+] Building 1.3s (1/2)                                    docker:desktop-linux
+[36m => [internal] load build definition from Dockerfile                       0.0s
+[0m[36m => => transferring dockerfile: 648B                                       0.0s
+[0m => [internal] load metadata for docker.io/library/python:3.10-slim        1.2s
+[?25h[1A[1A[1A[1A[0G[?25l[+] Building 1.4s (1/2)                                    docker:desktop-linux
+[36m => [internal] load build definition from Dockerfile                       0.0s
+[0m[36m => => transferring dockerfile: 648B                                       0.0s
+[0m => [internal] load metadata for docker.io/library/python:3.10-slim        1.4s
+[?25h[1A[1A[1A[1A[0G[?25l[+] Building 1.6s (1/2)                                    docker:desktop-linux
+[36m => [internal] load build definition from Dockerfile                       0.0s
+[0m[36m => => transferring dockerfile: 648B                                       0.0s
+[0m => [internal] load metadata for docker.io/library/python:3.10-slim        1.5s
+[?25h[1A[1A[1A[1A[0G[?25l[+] Building 1.6s (2/2)                                    docker:desktop-linux
+[36m => [internal] load build definition from Dockerfile                       0.0s
+[0m[36m => => transferring dockerfile: 648B                                       0.0s
+[0m[36m => [internal] load metadata for docker.io/library/python:3.10-slim        1.5s
+[0m[?25h[1A[1A[1A[1A[0G[?25l[+] Building 1.8s (4/11)                                   docker:desktop-linux
+[36m => [internal] load build definition from Dockerfile                       0.0s
+[0m[36m => => transferring dockerfile: 648B                                       0.0s
+[0m[36m => [internal] load metadata for docker.io/library/python:3.10-slim        1.5s
+[0m[36m => [internal] load .dockerignore                                          0.0s
+[0m[36m => => transferring context: 2B                                            0.0s
+[0m[36m => [1/7] FROM docker.io/library/python:3.10-slim@sha256:b22114335be968c4  0.0s
+[0m => [internal] load build context                                          0.1s
+ => => transferring context: 3.05kB                                        0.1s
+[?25h[1A[1A[1A[1A[1A[1A[1A[1A[1A[0G[?25l[+] Building 2.0s (10/11)                                  docker:desktop-linux
+[36m => [internal] load build context                                          0.1s
+[0m[36m => => transferring context: 3.05kB                                        0.1s
+[0m[36m => CACHED [2/7] RUN apt-get update && apt-get install -y --no-install-re  0.0s
+[0m[36m => CACHED [3/7] WORKDIR /opt/program                                      0.0s
+[0m[36m => CACHED [4/7] COPY requirements.txt .                                   0.0s
+[0m[36m => CACHED [5/7] RUN pip install --no-cache-dir -r requirements.txt        0.0s
+[0m[36m => [6/7] COPY serve.py ./serve.py                                         0.1s
+[0m => [7/7] RUN printf '#!/bin/sh\nexec gunicorn -b 0.0.0.0:8080 serve:app   0.2s
+[?25h[1A[1A[1A[1A[1A[1A[1A[1A[1A[0G[?25l[+] Building 2.2s (10/11)                                  docker:desktop-linux
+[36m => [internal] load build context                                          0.1s
+[0m[36m => => transferring context: 3.05kB                                        0.1s
+[0m[36m => CACHED [2/7] RUN apt-get update && apt-get install -y --no-install-re  0.0s
+[0m[36m => CACHED [3/7] WORKDIR /opt/program                                      0.0s
+[0m[36m => CACHED [4/7] COPY requirements.txt .                                   0.0s
+[0m[36m => CACHED [5/7] RUN pip install --no-cache-dir -r requirements.txt        0.0s
+[0m[36m => [6/7] COPY serve.py ./serve.py                                         0.1s
+[0m => [7/7] RUN printf '#!/bin/sh\nexec gunicorn -b 0.0.0.0:8080 serve:app   0.3s
+[?25h[1A[1A[1A[1A[1A[1A[1A[1A[1A[0G[?25l[+] Building 2.3s (10/11)                                  docker:desktop-linux
+[36m => [internal] load build context                                          0.1s
+[0m[36m => => transferring context: 3.05kB                                        0.1s
+[0m[36m => CACHED [2/7] RUN apt-get update && apt-get install -y --no-install-re  0.0s
+[0m[36m => CACHED [3/7] WORKDIR /opt/program                                      0.0s
+[0m[36m => CACHED [4/7] COPY requirements.txt .                                   0.0s
+[0m[36m => CACHED [5/7] RUN pip install --no-cache-dir -r requirements.txt        0.0s
+[0m[36m => [6/7] COPY serve.py ./serve.py                                         0.1s
+[0m => [7/7] RUN printf '#!/bin/sh\nexec gunicorn -b 0.0.0.0:8080 serve:app   0.5s
+[?25h[1A[1A[1A[1A[1A[1A[1A[1A[1A[0G[?25l[+] Building 2.5s (10/11)                                  docker:desktop-linux
+[36m => [internal] load build context                                          0.1s
+[0m[36m => => transferring context: 3.05kB                                        0.1s
+[0m[36m => CACHED [2/7] RUN apt-get update && apt-get install -y --no-install-re  0.0s
+[0m[36m => CACHED [3/7] WORKDIR /opt/program                                      0.0s
+[0m[36m => CACHED [4/7] COPY requirements.txt .                                   0.0s
+[0m[36m => CACHED [5/7] RUN pip install --no-cache-dir -r requirements.txt        0.0s
+[0m[36m => [6/7] COPY serve.py ./serve.py                                         0.1s
+[0m => [7/7] RUN printf '#!/bin/sh\nexec gunicorn -b 0.0.0.0:8080 serve:app   0.6s
+[?25h[1A[1A[1A[1A[1A[1A[1A[1A[1A[0G[?25l[+] Building 2.5s (11/11)                                  docker:desktop-linux
+[36m => [internal] load build context                                          0.1s
+[0m[36m => => transferring context: 3.05kB                                        0.1s
+[0m[36m => CACHED [2/7] RUN apt-get update && apt-get install -y --no-install-re  0.0s
+[0m[36m => CACHED [3/7] WORKDIR /opt/program                                      0.0s
+[0m[36m => CACHED [4/7] COPY requirements.txt .                                   0.0s
+[0m[36m => CACHED [5/7] RUN pip install --no-cache-dir -r requirements.txt        0.0s
+[0m[36m => [6/7] COPY serve.py ./serve.py                                         0.1s
+[0m[36m => [7/7] RUN printf '#!/bin/sh\nexec gunicorn -b 0.0.0.0:8080 serve:app   0.7s
+[0m[?25h[1A[1A[1A[1A[1A[1A[1A[1A[1A[0G[?25l[+] Building 2.7s (12/12) FINISHED                         docker:desktop-linux
+[36m => [internal] load build definition from Dockerfile                       0.0s
+[0m[36m => => transferring dockerfile: 648B                                       0.0s
+[0m[36m => [internal] load metadata for docker.io/library/python:3.10-slim        1.5s
+[0m[36m => [internal] load .dockerignore                                          0.0s
+[0m[36m => => transferring context: 2B                                            0.0s
+[0m[36m => [1/7] FROM docker.io/library/python:3.10-slim@sha256:b22114335be968c4  0.0s
+[0m[36m => [internal] load build context                                          0.1s
+[0m[36m => => transferring context: 3.05kB                                        0.1s
+[0m[36m => CACHED [2/7] RUN apt-get update && apt-get install -y --no-install-re  0.0s
+[0m[36m => CACHED [3/7] WORKDIR /opt/program                                      0.0s
+[0m[36m => CACHED [4/7] COPY requirements.txt .                                   0.0s
+[0m[36m => CACHED [5/7] RUN pip install --no-cache-dir -r requirements.txt        0.0s
+[0m[36m => [6/7] COPY serve.py ./serve.py                                         0.1s
+[0m[36m => [7/7] RUN printf '#!/bin/sh\nexec gunicorn -b 0.0.0.0:8080 serve:app   0.7s
+[0m[36m => exporting to image                                                     0.1s
+[0m[36m => => exporting layers                                                    0.0s
+[0m[36m => => writing image sha256:eb0f95fc983f3f7e07fb30a60300378694d94e26f5320  0.0s
+[0m[36m => => naming to docker.io/library/geoai-demo-inference:latest             0.0s
+[0m[?25h==> Pushing 172023108179.dkr.ecr.ap-south-1.amazonaws.com/geoai-demo-inference:latest
+The push refers to repository [172023108179.dkr.ecr.ap-south-1.amazonaws.com/geoai-demo-inference]
+af99060774af: Preparing
+750fc974566b: Preparing
+1cc3774460cf: Preparing
+f2d9644c28c5: Preparing
+bc47a7841c24: Preparing
+50a753e8e19b: Preparing
+2fd0c1d1e8b0: Preparing
+2d94d223d76c: Preparing
+ec442668ab9b: Preparing
+a257f20c716c: Preparing
+50a753e8e19b: Waiting
+2fd0c1d1e8b0: Waiting
+2d94d223d76c: Waiting
+ec442668ab9b: Waiting
+a257f20c716c: Waiting
+f2d9644c28c5: Layer already exists
+bc47a7841c24: Layer already exists
+1cc3774460cf: Layer already exists
+2d94d223d76c: Layer already exists
+2fd0c1d1e8b0: Layer already exists
+50a753e8e19b: Layer already exists
+ec442668ab9b: Layer already exists
+a257f20c716c: Layer already exists
+af99060774af: Pushed
+750fc974566b: Pushed
+latest: digest: sha256:9d0220bdd05009dbaf735a9b475a6f6e4947e91adee7d0211d6cd25b43df0458 size: 2411
+172023108179.dkr.ecr.ap-south-1.amazonaws.com/geoai-demo-inference:latest",
+  "EvaluationImageUri": "172023108179.dkr.ecr.ap-south-1.amazonaws.com/geoai-demo-evaluation:latest"
+}

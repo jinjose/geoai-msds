@@ -1,0 +1,11 @@
+boto3
+botocore
+pandas
+pyarrow
+requests
+python-dateutil
+earthengine-api
+google-auth
+google-auth-oauthlib
+pyshp
+shapely

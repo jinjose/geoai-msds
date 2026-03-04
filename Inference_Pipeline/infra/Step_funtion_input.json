@@ -1,0 +1,235 @@
+{
+  "run_date": "2026-02-27",
+  "state_fips": "19",
+  "county_fips": "ALL",
+  "backfill_start_year": "2023",
+
+  "ingest": {
+    "start": "2025-01-01",
+    "end": "2025-12-31",
+    "ndvi_granularity": "yearly",
+    "era5_granularity": "yearly",
+    "storm_granularity": "daily",
+    "yield_years": "2024,2025",
+    "storm_wind_cutoff_mph": "58",
+    "nws_user_agent": "geoai-capstone/1.0 (contact: mohankrishnan2026@u.northwestern.edu)"
+  },
+
+  "feature": {
+    "predict_year": "2025",
+    "target_years": ""
+  },
+
+  "steps": {
+    "ingest": false,
+    "features": true,
+    "model_registry": false,
+    "inference": true,
+    "evaluation": false,
+    "summary": false
+  },
+
+  "seasons": [
+    {
+      "feature_season": "jun01",
+      "model_name": "Jun01_LightGBM-limited_withstorm",
+      "model_s3_prefix": "s3://geoai-demo-data/models/Jun01_LightGBM-limited_withstorm/",
+      "models": [
+        {
+          "name": "Jun01_LightGBM-limited_withstorm",
+          "model_s3_uri": "s3://geoai-demo-data/models/Jun01_LightGBM-limited_withstorm/model.tar.gz"
+        }
+      ]
+    },
+    {
+      "feature_season": "jul01",
+      "model_name": "Jul01_LightGBM-tuned_withoutstorm",
+      "model_s3_prefix": "s3://geoai-demo-data/models/Jul01_LightGBM-tuned_withoutstorm/",
+      "models": [
+        {
+          "name": "Jul01_LightGBM-tuned_withoutstorm",
+          "model_s3_uri": "s3://geoai-demo-data/models/Jul01_LightGBM-tuned_withoutstorm/model.tar.gz"
+        }
+      ]
+    },
+    {
+      "feature_season": "jul15",
+      "model_name": "Jul15_LightGBM-limited_withstorm",
+      "model_s3_prefix": "s3://geoai-demo-data/models/Jul15_LightGBM-limited_withstorm/",
+      "models": [
+        {
+          "name": "Jul15_LightGBM-limited_withstorm",
+          "model_s3_uri": "s3://geoai-demo-data/models/Jul15_LightGBM-limited_withstorm/model.tar.gz"
+        }
+      ]
+    },
+    {
+      "feature_season": "aug01",
+      "model_name": "Aug01_LightGBM-limited_withstorm",
+      "model_s3_prefix": "s3://geoai-demo-data/models/Aug01_LightGBM-limited_withstorm/",
+      "models": [
+        {
+          "name": "Aug01_LightGBM-limited_withstorm",
+          "model_s3_uri": "s3://geoai-demo-data/models/Aug01_LightGBM-limited_withstorm/model.tar.gz"
+        }
+      ]
+    },
+    {
+      "feature_season": "aug15",
+      "model_name": "Aug15_LightGBM-limited_withstorm",
+      "model_s3_prefix": "s3://geoai-demo-data/models/Aug15_LightGBM-limited_withstorm/",
+      "models": [
+        {
+          "name": "Aug15_LightGBM-limited_withstorm",
+          "model_s3_uri": "s3://geoai-demo-data/models/Aug15_LightGBM-limited_withstorm/model.tar.gz"
+        }
+      ]
+    }
+  ]
+}
+
+
+======================================
+
+{
+  "run_date": "2026-03-03",
+  "state_fips": "19",
+  "county_fips": "ALL",
+  "predict_year": "2025",
+
+  "steps": {
+    "ingest": false,
+    "features": true,
+    "model_registry": true,
+    "inference": true,
+    "evaluation": true,
+    "summary": true
+  },
+
+  "feature_seasons": [
+    "jun01","jul01","aug01"
+  ],
+
+  "model_filter": {
+    "names": [
+      "Jun01_LightGBM-limited_withstorm",
+      "Jul01_LightGBM-limited_withstorm",
+      "Aug01_LightGBM-limited_withstorm"
+    ]
+  },
+
+  "backfill_start_year": "2014",
+
+  "ingest": {
+    "start": "2025-01-01",
+    "end": "2025-12-31",
+
+    "ndvi_granularity": "daily",
+    "era5_granularity": "daily",
+    "storm_granularity": "daily",
+
+    "storm_wind_cutoff_mph": 58,
+
+    "nws_user_agent": "geoai-demo (Mohan) contact: you@example.com",
+
+    "yield_years": [
+      2014,2015,2016,2017,2018,2019,
+      2020,2021,2022,2023,2024
+    ]
+  },
+
+  "eval_year_ranges": [
+    {
+      "name": "hist",
+      "start": 2014,
+      "end": 2020
+    },
+    {
+      "name": "recent",
+      "start": 2021,
+      "end": 2024
+    }
+  ]
+}
+
+
+## Run only model
+
+{
+  "run_date": "2026-03-03",
+  "state_fips": "19",
+  "county_fips": "ALL",
+  "predict_year": "2025",
+  "steps": {
+    "ingest": false,
+    "features": false,
+    "model_registry": true,
+    "inference": true,
+    "evaluation": true,
+    "summary": true
+  },
+  "feature_seasons": [
+    "jun01"
+  ],
+  "model_filter": {
+    "names": [
+      "Jun01_LightGBM-limited_withstorm"
+    ]
+  },
+  "backfill_start_year": "2014",
+  "eval_year_ranges": [
+    {
+      "name": "hist",
+      "start": 2014,
+      "end": 2020
+    },
+    {
+      "name": "recent",
+      "start": 2021,
+      "end": 2024
+    }
+  ]
+}
+
+## Run only model 
+{
+  "run_date": "2026-03-03",
+  "state_fips": "19",
+  "county_fips": "ALL",
+  "predict_year": "2025",
+  "steps": {
+    "ingest": false,
+    "features": false,
+    "model_registry": false,
+    "inference": true,
+    "evaluation": true,
+    "summary": true
+  },
+  "feature_seasons": ["jun01"],
+
+  "model_registry": {
+    "models": [
+      {
+        "name": "Jun01_LightGBM-limited_withstorm",
+        "model_name": "Jun01_LightGBM-limited_withstorm",
+        "model_s3_uri": "s3://geoai-demo-data/models/Jun01_LightGBM-limited_withstorm"
+      }
+    ]
+  },
+
+  "seasons": {
+    "models": [
+      {
+        "name": "Jun01_LightGBM-limited_withstorm",
+        "model_name": "Jun01_LightGBM-limited_withstorm",
+        "model_s3_uri": "s3://geoai-demo-data/models/Jun01_LightGBM-limited_withstorm"
+      }
+    ]
+  },
+
+  "backfill_start_year": "2014",
+  "eval_year_ranges": [
+    { "name": "hist", "start": 2014, "end": 2020 },
+    { "name": "recent", "start": 2021, "end": 2024 }
+  ]
+}

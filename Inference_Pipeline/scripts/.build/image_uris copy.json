@@ -1,0 +1,6 @@
+{
+  "IngestionImageUri": "172023108179.dkr.ecr.ap-south-1.amazonaws.com/geoai-demo-ingestion:latest",
+  "FeatureImageUri": "172023108179.dkr.ecr.ap-south-1.amazonaws.com/geoai-demo-feature:latest",
+  "InferenceImageUri": "172023108179.dkr.ecr.ap-south-1.amazonaws.com/geoai-demo-inference:latest",
+  "EvaluationImageUri": "172023108179.dkr.ecr.ap-south-1.amazonaws.com/geoai-demo-evaluation:latest"
+}

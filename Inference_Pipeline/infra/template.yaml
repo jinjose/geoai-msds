@@ -1,0 +1,817 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: GeoAI Capstone Demo - SageMaker Processing (ingest/features/eval) + Batch Transform 4xN + DynamoDB registry
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: geoai-demo
+  DataBucketName:
+    Type: String
+  ArtifactsBucketName:
+    Type: String
+  LambdaArtifactsPrefix:
+    Type: String
+    Default: lambda-artifacts
+  PipelineScheduleExpression:
+    Type: String
+    Default: rate(1 day)
+  PipelineEnabled:
+    Type: String
+    AllowedValues: ["true","false"]
+    Default: "false"
+  BackfillStartYear:
+    Type: Number
+    Default: 2014
+
+  IngestionImageUri:
+    Type: String
+  FeatureImageUri:
+    Type: String
+  InferenceImageUri:
+    Type: String
+  EvaluationImageUri:
+    Type: String
+
+  ProcessingInstanceType:
+    Type: String
+    Default: ml.m5.large
+  ProcessingInstanceCount:
+    Type: Number
+    Default: 1
+  TransformInstanceType:
+    Type: String
+    Default: ml.m5.large
+  TransformInstanceCount:
+    Type: Number
+    Default: 1
+
+  GeeServiceAccountSecretId:
+    Type: String
+    Default: geoai/gee/service_account_json
+  NassQuickstatsApiKeySecretId:
+    Type: String
+    Default: geoai/nass/quickstats_api_key
+
+Conditions:
+  EnableSchedule: !Equals [!Ref PipelineEnabled, "true"]
+
+Resources:
+  # DataBucket:
+  #   Type: AWS::S3::Bucket
+  #   Properties:
+  #     BucketName: !Ref DataBucketName
+  #     VersioningConfiguration: { Status: Enabled }
+  #     PublicAccessBlockConfiguration:
+  #       BlockPublicAcls: true
+  #       BlockPublicPolicy: true
+  #       IgnorePublicAcls: true
+  #       RestrictPublicBuckets: true
+
+  # ArtifactsBucket:
+  #   Type: AWS::S3::Bucket
+  #   Properties:
+  #     BucketName: !Ref ArtifactsBucketName
+  #     VersioningConfiguration: { Status: Enabled }
+  #     PublicAccessBlockConfiguration:
+  #       BlockPublicAcls: true
+  #       BlockPublicPolicy: true
+  #       IgnorePublicAcls: true
+  #       RestrictPublicBuckets: true
+
+  IngestionRegistry:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${ProjectName}-ingestion-registry"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-lambda-exec"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: lambda.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns: [arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole]
+      Policies:
+        - PolicyName: !Sub "${ProjectName}-lambda-policy"
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: [s3:GetObject, s3:PutObject, s3:ListBucket]
+                Resource:
+                  - !Sub "arn:aws:s3:::${DataBucketName}"
+                  - !Sub "arn:aws:s3:::${DataBucketName}/*"
+                  - !Sub "arn:aws:s3:::${ArtifactsBucketName}"
+                  - !Sub "arn:aws:s3:::${ArtifactsBucketName}/*"
+
+  
+  ModelRegistryLoaderLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${ProjectName}-model-registry-loader"
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Runtime: python3.12
+      Handler: app.lambda_handler
+      Timeout: 60
+      MemorySize: 256
+      Code:
+        S3Bucket: !Ref ArtifactsBucketName
+        S3Key: !Sub "${LambdaArtifactsPrefix}/model_registry_loader.zip"
+      Environment:
+        Variables:
+          DATA_BUCKET: !Ref DataBucketName
+          REGISTRY_KEY: config/model_registry.json
+
+  EvalSummaryLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${ProjectName}-eval-summary"
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Runtime: python3.12
+      Handler: app.lambda_handler
+      Timeout: 120
+      MemorySize: 256
+      Code:
+        S3Bucket: !Ref ArtifactsBucketName
+        S3Key: !Sub "${LambdaArtifactsPrefix}/eval_lambda.zip"
+      Environment:
+        Variables:
+          DATA_BUCKET: !Ref DataBucketName
+
+  SageMakerExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-sagemaker-exec"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: sagemaker.amazonaws.com
+            Action: sts:AssumeRole
+
+      Policies:
+        - PolicyName: !Sub "${ProjectName}-sm-s3-secrets"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: S3Access
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:ListBucket
+                Resource:
+                  - !Sub "arn:aws:s3:::${DataBucketName}"
+                  - !Sub "arn:aws:s3:::${DataBucketName}/*"
+
+              - Sid: ReadSpecificSecrets
+                Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                  - secretsmanager:DescribeSecret
+                Resource:
+                  - !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:geoai/gee/service_account_json*"
+                  - !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:geoai/nass/quickstats_api_key*"
+        - PolicyName: ECRPullPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: ECRAuth
+                Effect: Allow
+                Action:
+                  - ecr:GetAuthorizationToken
+                Resource: "*"
+              - Sid: ECRPull
+                Effect: Allow
+                Action:
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:BatchGetImage
+                  - ecr:GetDownloadUrlForLayer
+                Resource: "*"
+        - PolicyName: CloudWatchLogsWrite
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - logs:DescribeLogStreams
+                Resource: "*"
+        - PolicyName: DynamoDBAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: DynamoDbAuth
+                Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                Resource: !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ProjectName}-ingestion-registry"        
+  
+  StepFunctionsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-sfn-role"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: states.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub "${ProjectName}-sfn-policy"
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: [lambda:InvokeFunction]
+                Resource:
+                  - !GetAtt ModelRegistryLoaderLambda.Arn
+                  - !GetAtt EvalSummaryLambda.Arn
+              - Effect: Allow
+                Action:
+                  - sagemaker:CreateProcessingJob
+                  - sagemaker:DescribeProcessingJob
+                  - sagemaker:StopProcessingJob
+                  - sagemaker:CreateModel
+                  - sagemaker:DeleteModel
+                  - sagemaker:CreateTransformJob
+                  - sagemaker:DescribeTransformJob
+                  - sagemaker:StopTransformJob
+                Resource: "*"
+              - Effect: Allow
+                Action: iam:PassRole
+                Resource: !GetAtt SageMakerExecutionRole.Arn
+              - Effect: Allow
+                Action: [s3:GetObject, s3:PutObject, s3:ListBucket]
+                Resource:
+                  - !Sub "arn:aws:s3:::${DataBucketName}"
+                  - !Sub "arn:aws:s3:::${DataBucketName}/*"
+  
+  GeoAiStateMachine:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      StateMachineName: !Sub "${ProjectName}-pipeline"
+      RoleArn: !GetAtt StepFunctionsRole.Arn
+      DefinitionString: !Sub |
+        {
+          "Comment": "GeoAI Full Pipeline - Ingestion (NDVI/ERA5/Storm) -> Feature Build (5 cutoffs) -> 5x1 Batch Transform -> Evaluation",
+          "StartAt": "EnsureSteps",
+          "States": {
+            "EnsureSteps": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.steps",
+                  "IsPresent": true,
+                  "Next": "EnsureFeatureSeasons"
+                }
+              ],
+              "Default": "SetDefaultSteps"
+            },
+            "SetDefaultSteps": {
+              "Type": "Pass",
+              "Result": {
+                "ingest": true,
+                "features": true,
+                "model_registry": true,
+                "inference": true,
+                "evaluation": true,
+                "summary": true
+              },
+              "ResultPath": "$.steps",
+              "Next": "EnsureFeatureSeasons"
+            },
+            "EnsureFeatureSeasons": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.seasons",
+                  "IsPresent": true,
+                  "Next": "EnsureBackfillStartYear"
+                },
+                {
+                  "Variable": "$.feature_seasons",
+                  "IsPresent": true,
+                  "Next": "EnsureBackfillStartYear"
+                }
+              ],
+              "Default": "SetDefaultFeatureSeasons"
+            },
+            "SetDefaultFeatureSeasons": {
+              "Type": "Pass",
+              "Result": [
+                "jun01",
+                "jul01",
+                "jul15",
+                "aug01"
+              ],
+              "ResultPath": "$.feature_seasons",
+              "Next": "EnsureBackfillStartYear"
+            },
+
+            "EnsureBackfillStartYear": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.backfill_start_year",
+                  "IsPresent": true,
+                  "Next": "DecideIngest"
+                }
+              ],
+              "Default": "SetDefaultBackfillStartYear"
+            },
+            "SetDefaultBackfillStartYear": {
+              "Type": "Pass",
+              "Result": "${BackfillStartYear}",
+              "ResultPath": "$.backfill_start_year",
+              "Next": "DecideIngest"
+            },
+            "DecideIngest": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.steps.ingest",
+                  "BooleanEquals": false,
+                  "Next": "DecideFeatures"
+                }
+              ],
+              "Default": "RunIngestion"
+            },
+            "DecideFeatures": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.steps.features",
+                  "BooleanEquals": false,
+                  "Next": "DecideModelRegistry"
+                }
+              ],
+              "Default": "BuildFrozenFeatures"
+            },
+            "DecideModelRegistry": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Or": [
+                    { "Variable": "$.steps", "IsPresent": false },
+                    { "Variable": "$.steps.model_registry", "IsPresent": false },
+                    { "Variable": "$.steps.model_registry", "BooleanEquals": false }
+                  ],
+                  "Next": "CheckModelsProvided"
+                }
+              ],
+              "Default": "LoadModelRegistry"
+            },
+            "CheckModelsProvided": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.seasons",
+                  "IsPresent": true,
+                  "Next": "DecideInference"
+                },
+                {
+                  "Variable": "$.model_registry",
+                  "IsPresent": true,
+                  "Next": "DecideInference"
+                }
+              ],
+              "Default": "MissingModelsFail"
+            },
+            "MissingModelsFail": {
+              "Type": "Fail",
+              "Error": "MissingModels",
+              "Cause": "steps.model_registry=false but model_registry.models is missing in input"
+            },
+            "DecideInference": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.steps.inference",
+                  "BooleanEquals": false,
+                  "Next": "DecideEvaluation"
+                }
+              ],
+              "Default": "RunSeasonModelGrid"
+            },
+            "DecideEvaluation": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.steps.evaluation",
+                  "BooleanEquals": false,
+                  "Next": "DecideSummary"
+                }
+              ],
+              "Default": "RunEvaluation"
+            },
+            "DecideSummary": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.steps.summary",
+                  "BooleanEquals": false,
+                  "Next": "Done"
+                }
+              ],
+              "Default": "WriteEvalSummary"
+            },
+            "Done": {
+              "Type": "Succeed"
+            },
+            "RunIngestion": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::aws-sdk:sagemaker:createProcessingJob",
+              "Parameters": {
+                "ProcessingJobName.$": "States.Format('geoai-ingest-{}-{}', $.run_date, States.ArrayGetItem(States.StringSplit(States.UUID(), '-'), 4))",
+                "RoleArn": "${SageMakerExecutionRole.Arn}",
+                "AppSpecification": { "ImageUri": "${IngestionImageUri}","ContainerArguments": ["--dataset", "all"] },
+                "Environment": {
+                  "DATA_BUCKET": "${DataBucketName}",
+                  "REGISTRY_TABLE": "${ProjectName}-ingestion-registry",
+                  "STATE_FIPS.$": "$.state_fips",
+                  "COUNTY_FIPS.$": "$.county_fips",
+                  "BACKFILL_START_YEAR.$": "$.backfill_start_year",
+                  "GEE_SA_SECRET_ID": "${GeeServiceAccountSecretId}",
+                  "NASS_API_KEY_SECRET_ID": "${NassQuickstatsApiKeySecretId}",
+                  "AWS_REGION": "${AWS::Region}",
+                  "AWS_DEFAULT_REGION": "${AWS::Region}",
+                  "STORM_GRANULARITY.$": "$.ingest.storm_granularity",
+                  "STORM_ENABLED": "true",
+                  "STORM_WIND_CUTOFF_MPH.$": "$.ingest.storm_wind_cutoff_mph",
+                  "COUNTY_SHP_DIR": "/opt/program/data/counties",
+                  "NWS_USER_AGENT.$": "$.ingest.nws_user_agent",
+                  "INGEST_START.$": "$.ingest.start",
+                  "INGEST_END.$": "$.ingest.end",
+                  "NDVI_GRANULARITY.$": "$.ingest.ndvi_granularity",
+                  "ERA5_GRANULARITY.$": "$.ingest.era5_granularity",
+                  "YIELD_YEARS.$": "$.ingest.yield_years"
+                },
+                "ProcessingResources": {
+                  "ClusterConfig": {
+                    "InstanceType": "${ProcessingInstanceType}",
+                    "InstanceCount": ${ProcessingInstanceCount},
+                    "VolumeSizeInGB": 30
+                  }
+                }
+              },
+                            "Retry": [
+                {
+                  "ErrorEquals": [
+                    "SageMaker.SageMakerException",
+                    "SageMaker.ThrottlingException",
+                    "States.Timeout",
+                    "States.TaskFailed"
+                  ],
+                  "IntervalSeconds": 5,
+                  "BackoffRate": 2.0,
+                  "MaxAttempts": 8
+                }
+              ],
+              "ResultPath": "$.jobs.ingest",
+              "Next": "DecideFeatures"
+            },
+            "BuildFrozenFeatures": {
+              "Type": "Map",
+              "ItemsPath": "$.feature_seasons",
+              "MaxConcurrency": 1,
+              "Parameters": {
+                "feature_season.$": "$$.Map.Item.Value",
+                "run_date.$": "$.run_date",
+                "state_fips.$": "$.state_fips",
+                "county_fips.$": "$.county_fips",
+                "backfill_start_year.$": "$.backfill_start_year",
+                "predict_year.$": "$.predict_year",
+                "ingest.$": "$.ingest"
+              },
+
+              "Iterator": {
+                "StartAt": "WaitBeforeFeatureProcessing",
+                "States": {
+                  "WaitBeforeFeatureProcessing": {
+                    "Type": "Wait",
+                    "Seconds": 10,
+                    "Next": "RunFeatureProcessing"
+                  },
+                  "RunFeatureProcessing": {
+                    "Type": "Task",
+                    "Resource": "arn:aws:states:::aws-sdk:sagemaker:createProcessingJob",
+                    "Parameters": {
+                      "ProcessingJobName.$": "States.Format('geoai-feat-{}-{}-{}', $.feature_season, $.run_date, States.ArrayGetItem(States.StringSplit(States.UUID(), '-'), 4))",
+                      "RoleArn": "${SageMakerExecutionRole.Arn}",
+                      "AppSpecification": {
+                        "ImageUri": "${FeatureImageUri}"
+                      },                      
+                      "Environment": {
+                        "DATA_BUCKET": "${DataBucketName}",
+                        "STATE_FIPS.$": "$.state_fips",
+                        "COUNTY_FIPS.$": "$.county_fips",
+                        "RUN_DATE.$": "$.run_date",
+                        "FEATURE_SEASON.$": "$.feature_season",
+                        "BACKFILL_START_YEAR.$": "$.backfill_start_year",
+                        "PREDICT_YEAR.$": "States.Format('{}', $.predict_year)",
+                        "NDVI_GRANULARITY.$": "$.ingest.ndvi_granularity",
+                        "NDVI_FALLBACK_MODE": "auto",
+                        "AWS_REGION": "${AWS::Region}",
+                        "AWS_DEFAULT_REGION": "${AWS::Region}",
+                        "ERA5_GRANULARITY.$": "$.ingest.era5_granularity",
+                        "STORM_GRANULARITY.$": "$.ingest.storm_granularity",
+                        "STORM_WIND_CUTOFF_MPH.$": "States.Format('{}', $.ingest.storm_wind_cutoff_mph)"
+                      },
+                      "ProcessingResources": {
+                        "ClusterConfig": {
+                          "InstanceType": "${ProcessingInstanceType}",
+                          "InstanceCount": ${ProcessingInstanceCount},
+                          "VolumeSizeInGB": 30
+                        }
+                      }
+                    },
+                    "Retry": [
+                      {
+                        "ErrorEquals": [
+                          "SageMaker.SageMakerException",
+                          "SageMaker.ThrottlingException",
+                          "States.Timeout",
+                          "States.TaskFailed"
+                        ],
+                        "IntervalSeconds": 5,
+                        "BackoffRate": 2.0,
+                        "MaxAttempts": 8
+                      }
+                    ],
+                    "ResultPath": "$.feature_job",
+                    "End": true
+                  }
+                }
+              },
+              "ResultPath": "$.jobs.features",
+              "Next": "DecideModelRegistry"
+            },
+            "LoadModelRegistry": {
+                "Type": "Task",
+                "Resource": "${ModelRegistryLoaderLambda.Arn}",
+                "Parameters": {
+                  "seasons.$": "$.feature_seasons",
+                  "model_filter.$": "$.model_filter"
+                },
+                "Retry": [
+                    {
+                      "ErrorEquals": ["Lambda.ServiceException","Lambda.AWSLambdaException","States.TaskFailed"],
+                      "IntervalSeconds": 3,
+                      "BackoffRate": 2,
+                      "MaxAttempts": 6
+                    }
+                  ],
+                "ResultPath": "$.seasons",
+                "Next": "DecideInference"
+              },
+            "RunSeasonModelGrid": {
+              "Type": "Map",
+              "ItemsPath": "$.feature_seasons",
+              "MaxConcurrency": 1,
+              "Parameters": {
+                "feature_season.$": "$$.Map.Item.Value",
+                "models.$": "$.seasons.models",
+                "run_date.$": "$.run_date",
+                "predict_year.$": "$.predict_year",
+                "state_fips.$": "$.state_fips",
+                "county_fips.$": "$.county_fips"
+              },
+              "Iterator": {
+                "StartAt": "RunModelsForSeason",
+                "States": {
+                  "RunModelsForSeason": {
+                    "Type": "Map",
+                    "ItemsPath": "$.models",
+                    "MaxConcurrency": 1,
+                    "Parameters": {
+                      "model_name.$": "$$.Map.Item.Value.name",
+                      "model_s3_uri.$": "$$.Map.Item.Value.model_s3_uri",
+                      "feature_season.$": "$.feature_season",
+                      "run_date.$": "$.run_date",
+                      "predict_year.$": "$.predict_year",
+                      "state_fips.$": "$.state_fips",
+                      "county_fips.$": "$.county_fips"
+                    },
+                    "Iterator": {
+                      "StartAt": "MakeSuffix",
+                      "States": {
+                        "MakeSuffix": {
+                          "Type": "Pass",
+                          "Parameters": {
+                            "suffix.$": "States.ArrayGetItem(States.StringSplit(States.UUID(), '-'), 4)"
+                          },
+                          "ResultPath": "$.name_parts",
+                          "Next": "CreateModel"
+                        },
+                        "CreateModel": {
+                          "Type": "Task",
+                          "Resource": "arn:aws:states:::aws-sdk:sagemaker:createModel",
+                          "Parameters": {
+                            "ModelName.$": "States.Format('geoai-mod-{}-{}', $.feature_season, $.name_parts.suffix)",
+                            "ExecutionRoleArn": "${SageMakerExecutionRole.Arn}",
+                            "PrimaryContainer": {
+                              "Image": "${InferenceImageUri}",
+                              "ModelDataUrl.$": "States.Format('{}/model.tar.gz', $.model_s3_uri)",
+                              "Environment": {
+                                "MODEL_NAME.$": "$.model_name",
+                                "MODEL_TYPE": "mlflow",
+                                "AWS_REGION": "${AWS::Region}"
+                              }
+                            }
+                          },
+                      "ResultPath": "$.create_model",
+                          "Next": "CreateTransform"
+                        },
+                        "CreateTransform": {
+                          "Type": "Task",
+                          "Resource": "arn:aws:states:::aws-sdk:sagemaker:createTransformJob",
+                          "Parameters": {
+                            "TransformJobName.$": "States.Format('geoai-tj-{}-{}', $.feature_season, $.name_parts.suffix)",
+                            "ModelName.$": "States.Format('geoai-mod-{}-{}', $.feature_season, $.name_parts.suffix)",
+                            "TransformInput": {
+                              "DataSource": {
+                                "S3DataSource": {
+                                  "S3DataType": "S3Prefix",
+                                  "S3Uri.$": "States.Format('s3://${DataBucketName}/features_frozen/state_fips={}/county_fips={}/predict_year={}/feature_season={}/run_date={}/', $.state_fips, $.county_fips, $.predict_year, $.feature_season, $.run_date)"
+                                }
+                              },
+                              "ContentType": "application/x-parquet"
+                            },
+                            "TransformOutput": {
+                              "S3OutputPath.$": "States.Format('s3://${DataBucketName}/predictions/state_fips={}/county_fips={}/predict_year={}/feature_season={}/run_date={}/model={}/', $.state_fips, $.county_fips, $.predict_year, $.feature_season, $.run_date, $.model_name)"
+                            },
+                            "TransformResources": {
+                              "InstanceType": "${TransformInstanceType}",
+                              "InstanceCount": ${TransformInstanceCount}
+                            }
+                          },
+                      "ResultPath": "$.transform_job",
+                          "Next": "Wait20s"
+                        },
+                        "Wait20s": {
+                          "Type": "Wait",
+                          "Seconds": 20,
+                          "Next": "DescribeTransform"
+                        },
+                        "DescribeTransform": {
+                          "Type": "Task",
+                          "Resource": "arn:aws:states:::aws-sdk:sagemaker:describeTransformJob",
+                          "Parameters": {
+                            "TransformJobName.$": "States.Format('geoai-tj-{}-{}', $.feature_season, $.name_parts.suffix)"
+                          },
+                                        "Retry": [
+                {
+                  "ErrorEquals": [
+                    "SageMaker.SageMakerException",
+                    "SageMaker.ThrottlingException",
+                    "States.Timeout",
+                    "States.TaskFailed"
+                  ],
+                  "IntervalSeconds": 5,
+                  "BackoffRate": 2.0,
+                  "MaxAttempts": 8
+                }
+              ],
+              "ResultPath": "$.describe",
+                          "Next": "CheckStatus"
+                        },
+                        "CheckStatus": {
+                          "Type": "Choice",
+                          "Choices": [
+                            { "Variable": "$.describe.TransformJobStatus", "StringEquals": "Completed", "Next": "DeleteModel" },
+                            { "Variable": "$.describe.TransformJobStatus", "StringEquals": "Failed", "Next": "Fail" }
+                          ],
+                          "Default": "Wait20s"
+                        },
+                        "DeleteModel": {
+                          "Type": "Task",
+                          "Resource": "arn:aws:states:::aws-sdk:sagemaker:deleteModel",
+                          "Parameters": {
+                            "ModelName.$": "States.Format('geoai-mod-{}-{}', $.feature_season, $.name_parts.suffix)"
+                          },
+                          "End": true
+                        },
+                        "Fail": {
+                          "Type": "Fail",
+                          "Cause": "Batch transform failed"
+                        }
+                      }
+                    },
+                    "End": true
+                  }
+                }
+              },
+              "ResultPath": "$.jobs.inference",
+              "Next": "DecideEvaluation"
+            },
+            "RunEvaluation": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::aws-sdk:sagemaker:createProcessingJob",
+              "Parameters": {
+                "ProcessingJobName.$": "States.Format('geoai-eval-{}-{}', $.run_date, States.ArrayGetItem(States.StringSplit(States.UUID(), '-'), 4))",
+                "RoleArn": "${SageMakerExecutionRole.Arn}",
+                "AppSpecification": { "ImageUri": "${EvaluationImageUri}" },
+                "Environment": {
+                  "DATA_BUCKET": "${DataBucketName}",
+                  "STATE_FIPS.$": "$.state_fips",
+                  "COUNTY_FIPS.$": "$.county_fips",
+                  "RUN_DATE.$": "$.run_date",
+                  "PREDICT_YEAR.$": "$.predict_year",
+                  "AWS_REGION": "${AWS::Region}",
+                  "EVAL_YEAR_RANGES.$": "States.JsonToString($.eval_year_ranges)"
+                },
+                "ProcessingResources": {
+                  "ClusterConfig": {
+                    "InstanceType": "${ProcessingInstanceType}",
+                    "InstanceCount": ${ProcessingInstanceCount},
+                    "VolumeSizeInGB": 30
+                  }
+                }
+              },
+                            "Retry": [
+                {
+                  "ErrorEquals": [
+                    "SageMaker.SageMakerException",
+                    "SageMaker.ThrottlingException",
+                    "States.Timeout",
+                    "States.TaskFailed"
+                  ],
+                  "IntervalSeconds": 5,
+                  "BackoffRate": 2.0,
+                  "MaxAttempts": 8
+                }
+              ],
+              "ResultPath": "$.jobs.evaluation",
+              "Next": "DecideSummary"
+            },
+            "WriteEvalSummary": {
+              "Type": "Task",
+              "Resource": "${EvalSummaryLambda.Arn}",
+              "End": true
+            }
+          }
+        }
+
+  SchedulerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-scheduler-role"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: scheduler.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub "${ProjectName}-scheduler-start-sfn"
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: [states:StartExecution]
+                Resource: !GetAtt GeoAiStateMachine.Arn
+
+  PipelineSchedule:
+    Type: AWS::Scheduler::Schedule
+    Condition: EnableSchedule
+    Properties:
+      Name: !Sub "${ProjectName}-schedule"
+      FlexibleTimeWindow: { Mode: "OFF" }
+      ScheduleExpression: !Ref PipelineScheduleExpression
+      Target:
+        Arn: !GetAtt GeoAiStateMachine.Arn
+        RoleArn: !GetAtt SchedulerRole.Arn
+        Input: !Sub |
+          {
+            "run_date": "scheduled",
+            "predict_year": "2025",
+            "state_fips": "19",
+            "county_fips": "ALL",
+            "feature_seasons": ["jun01","jul01","jul15","aug01"],
+            "backfill_start_year": ${BackfillStartYear},
+            "secrets": {
+              "gee_sa_secret_id": "REPLACE_ME",
+              "nass_api_key_secret_id": "REPLACE_ME"
+            }
+          }
+
+Outputs:
+  StateMachineArn:
+    Value: !GetAtt GeoAiStateMachine.Arn
+  RegistryTable:
+    Value: !Ref IngestionRegistry
