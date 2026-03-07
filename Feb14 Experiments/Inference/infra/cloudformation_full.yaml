@@ -1,0 +1,249 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: GeoAI LightGBM BYOC Batch Transform - S3 + ECR + IAM + Lambda Scheduler (Default VPC)
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: geoai
+  ExistingSageMakerExecutionRoleArn:
+    Type: String
+    Default: ""
+    Description: "Optional: provide an existing SageMaker execution role ARN. If empty, the stack will try to create one (requires iam:CreateRole permissions)."
+  LambdaCodeS3Bucket:
+    Type: String
+    Default: "geoai-lambda-assets-bucket"
+    Description: "S3 bucket that holds the packaged lambda zip (required)."
+  LambdaCodeS3Key:
+    Type: String
+    Default: "lambda/transform_scheduler.zip"
+    Description: "S3 key for the lambda zip."
+  ModelDataS3Key:
+    Type: String
+    Default: "geoai/model.tar.gz"
+    Description: "S3 key under the artifacts bucket where model.tar.gz is uploaded before creating the stack."
+
+  ContainerImageTag:
+    Type: String
+    Default: "v1"
+    Description: "Tag pushed to ECR. Example: v1"
+
+  TransformInstanceType:
+    Type: String
+    Default: "ml.m5.large"
+    Description: "SageMaker Batch Transform instance type (must be allowed in your account quotas)."
+
+  ScheduleExpression:
+    Type: String
+    Default: "rate(1 day)"
+    Description: "EventBridge schedule expression."
+  ArtifactsBucketName:
+    Type: String
+    MinLength: 3
+    Default : "geoai-model-bucket" 
+    Description: "Existing S3 bucket for model/input/output artifacts (e.g., geoai-model-bucket). Must already exist."  
+
+Conditions:
+  CreateSageMakerRole: !Equals [ !Ref ExistingSageMakerExecutionRoleArn, "" ]
+
+Resources:
+  
+  EcrRepo:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub "${ProjectName}-${AWS::StackName}-lgbm-inference"
+
+  SageMakerExecutionRole:
+    Condition: CreateSageMakerRole
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-${AWS::StackName}-sagemaker-exec"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: sagemaker.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub "${ProjectName}-${AWS::StackName}-sagemaker-access"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:ListBucket
+                Resource:
+                  - !Sub "arn:aws:s3:::${ArtifactsBucketName}"
+                  - !Sub "arn:aws:s3:::${ArtifactsBucketName}/*"
+              - Effect: Allow
+                Action:
+                  - ecr:GetAuthorizationToken
+                  - ecr:BatchGetImage
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:BatchCheckLayerAvailability
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: "*"
+
+  # Optional: A quick preflight check for model.tar.gz
+  ModelArtifactCheck:
+    Type: AWS::CloudFormation::CustomResource
+    Properties:
+      ServiceToken: !GetAtt PreflightLambda.Arn
+      Bucket: !Ref ArtifactsBucketName
+      Key: !Ref ModelDataS3Key
+
+  PreflightLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-${AWS::StackName}-preflight-lambda"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: lambda.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: preflight
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: s3:GetObject
+                Resource: 
+                  - !Sub "arn:aws:s3:::${ArtifactsBucketName}/*"
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: "*"
+
+  PreflightLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${ProjectName}-${AWS::StackName}-preflight"
+      Runtime: python3.12
+      Handler: index.handler
+      Timeout: 30
+      Role: !GetAtt PreflightLambdaRole.Arn
+      Code:
+        ZipFile: |
+          import boto3, json, urllib3
+          s3=boto3.client("s3")
+          http=urllib3.PoolManager()
+          def _send(event, context, status, data, reason=""):
+              body={"Status":status,"Reason":reason or "OK","PhysicalResourceId":context.log_stream_name,
+                    "StackId":event["StackId"],"RequestId":event["RequestId"],"LogicalResourceId":event["LogicalResourceId"],
+                    "Data":data}
+              http.request("PUT", event["ResponseURL"], body=json.dumps(body).encode("utf-8"), headers={"content-type":""})
+          def handler(event, context):
+              try:
+                  bucket=event["ResourceProperties"]["Bucket"]
+                  key=event["ResourceProperties"]["Key"]
+                  if event["RequestType"] in ("Create","Update"):
+                      s3.head_object(Bucket=bucket, Key=key)
+                  _send(event, context, "SUCCESS", {"checked":f"s3://{bucket}/{key}"})
+              except Exception as e:
+                  _send(event, context, "FAILED", {"error":str(e)}, reason=str(e))
+
+  SageMakerModel:
+    Type: AWS::SageMaker::Model
+    DependsOn: ModelArtifactCheck
+    Properties:
+      ModelName: !Sub "${ProjectName}-${AWS::StackName}-lgbm-model"
+      ExecutionRoleArn: !If [CreateSageMakerRole, !GetAtt SageMakerExecutionRole.Arn, !Ref ExistingSageMakerExecutionRoleArn]
+      PrimaryContainer:
+        Image: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AWS::StackName}-inference:${ContainerImageTag}"
+        ModelDataUrl: !Sub "s3://${ArtifactsBucketName}/${ModelDataS3Key}"
+
+  TransformSchedulerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-${AWS::StackName}-transform-scheduler"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: lambda.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: transform-scheduler
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sagemaker:CreateTransformJob
+                  - sagemaker:DescribeTransformJob
+                  - sagemaker:StopTransformJob
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - iam:PassRole
+                Resource: !If [CreateSageMakerRole, !GetAtt SageMakerExecutionRole.Arn, !Ref ExistingSageMakerExecutionRoleArn]
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:ListBucket
+                Resource:
+                  - !Sub "arn:aws:s3:::${ArtifactsBucketName}"
+                  - !Sub "arn:aws:s3:::${ArtifactsBucketName}/*"
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: "*"
+
+  TransformSchedulerLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${ProjectName}-${AWS::StackName}-transform-scheduler"
+      Runtime: python3.12
+      Handler: lambda.transform_scheduler.handler
+      Timeout: 60
+      Role: !GetAtt TransformSchedulerRole.Arn
+      Code:
+        S3Bucket: !Ref LambdaCodeS3Bucket
+        S3Key: !Ref LambdaCodeS3Key
+      Environment:
+        Variables:
+          MODEL_NAME: !GetAtt SageMakerModel.ModelName
+          SAGEMAKER_ROLE_ARN: !If [CreateSageMakerRole, !GetAtt SageMakerExecutionRole.Arn, !Ref ExistingSageMakerExecutionRoleArn]
+          INPUT_S3_PREFIX: !Sub "s3://${ArtifactsBucketName}/batch/input/"
+          OUTPUT_S3_PREFIX: !Sub "s3://${ArtifactsBucketName}/batch/output/"
+          INSTANCE_TYPE: !Ref TransformInstanceType
+          INSTANCE_COUNT: "1"
+
+  DailyScheduleRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub "${ProjectName}-${AWS::StackName}-daily-transform"
+      ScheduleExpression: !Ref ScheduleExpression
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt TransformSchedulerLambda.Arn
+          Id: "TransformSchedulerLambda"
+
+  AllowEventBridgeInvoke:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref TransformSchedulerLambda
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt DailyScheduleRule.Arn
+
+Outputs:
+  ArtifactsBucketName:
+    Value: !Sub "arn:aws:s3:::${ArtifactsBucketName}"
+  EcrRepositoryUri:
+    Value: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AWS::StackName}-inference"
+  SageMakerModelName:
+    Value: !GetAtt SageMakerModel.ModelName

@@ -1,0 +1,6 @@
+lightgbm
+pandas
+numpy
+boto3
+mlflow
+pytest

@@ -1,0 +1,819 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: GeoAI LightGBM BYOC Batch Transform - S3 + ECR + IAM + Lambda Scheduler (Default VPC)
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: geoai
+  ExistingSageMakerExecutionRoleArn:
+    Type: String
+    Default: ""
+    Description: "Optional: provide an existing SageMaker execution role ARN. If empty, the stack will try to create one (requires iam:CreateRole permissions)."
+  LambdaCodeS3Bucket:
+    Type: String
+    Default: "geoai-lambda-assets-bucket"
+    Description: "S3 bucket that holds the packaged lambda zip (required)."
+  LambdaCodeS3Key:
+    Type: String
+    Default: "lambda/transform_scheduler.zip"
+    Description: "S3 key for the lambda zip."
+  ModelDataS3Key:
+    Type: String
+    Default: "geoai/model.tar.gz"
+    Description: "S3 key under the artifacts bucket where model.tar.gz is uploaded before creating the stack."
+
+  ContainerImageTag:
+    Type: String
+    Default: "v1"
+    Description: "Tag pushed to ECR. Example: v1"
+
+  TransformInstanceType:
+    Type: String
+    Default: "ml.m5.large"
+    Description: "SageMaker Batch Transform instance type (must be allowed in your account quotas)."
+
+  ScheduleExpression:
+    Type: String
+    Default: "rate(1 day)"
+    Description: "EventBridge schedule expression."
+  ArtifactsBucketName:
+    Type: String
+    MinLength: 3
+    Default : "geoai-model-bucket" 
+    Description: "Existing S3 bucket for model/input/output artifacts (e.g., geoai-model-bucket). Must already exist."  
+  EvalProcessingImageUri:
+    Type: String
+    Default: "evalprocess"
+    Description: "ECR image URI for the evaluation Processing job container (runs evaluation_processor.py)."
+  CompareProcessingImageUri:
+    Type: String
+    Default: "compareprocess"
+    Description: "ECR image URI for the comparison/report Processing job container (runs compare_and_report.py)."
+  CutoffStateMachineName:
+    Type: String
+    Default: "geoai-cutoff-pipeline"
+    Description: "Name for the Step Functions state machine."
+  Environment:
+    Type: String
+    Default: prod
+
+  VpcId:
+    Type: String
+    Default: ""
+    Description: "Optional: VPC ID for the ECS tasks. If empty, will use default VPC."
+
+  Subnets:
+    Type: CommaDelimitedList
+    Default: ""
+    Description: "Optional: List of subnet IDs for the ECS tasks. If VpcId is not set, this parameter is ignored."
+ 
+  SecurityGroups:
+    Type: CommaDelimitedList
+    Default: ""
+    Description: "Optional: List of security group IDs for the ECS tasks. If VpcId is not set, this parameter is ignored."
+
+  ECRImage:
+    Type: String
+    Default: ""
+    Description: Full ECR image URI
+
+  ArtifactBucket:
+    Type: String
+    Default: geoai-artifact-bucket
+
+  GeeSecretArn:
+    Type: String
+    Default: ""
+    Description: "ARN of the Secrets Manager secret that contains the GEE service account JSON key. Example: arn:aws:secretsmanager:us-east-1:123456789012:secret:geoai/gee/service_account_json-EXAMPLE"
+
+  NassSecretArn:
+    Type: String
+    Default: ""
+    Description: "ARN of the Secrets Manager secret that contains the NASS Quick Stats API key. Example: arn:aws:secretsmanager:us-east-1:123456789012:secret:geoai/nass/quickstats_api_key-EXAMPLE"
+
+Conditions:
+  CreateSageMakerRole: !Equals [ !Ref ExistingSageMakerExecutionRoleArn, "" ]
+
+Resources:
+  
+  EcrRepo:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub "${ProjectName}-${AWS::StackName}-lgbm-inference"
+
+  SageMakerExecutionRole:
+    Condition: CreateSageMakerRole
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-${AWS::StackName}-sagemaker-exec"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: sagemaker.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub "${ProjectName}-${AWS::StackName}-sagemaker-access"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:ListBucket
+                Resource:
+                  - !Sub "arn:aws:s3:::${ArtifactsBucketName}"
+                  - !Sub "arn:aws:s3:::${ArtifactsBucketName}/*"
+              - Effect: Allow
+                Action:
+                  - ecr:GetAuthorizationToken
+                  - ecr:BatchGetImage
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:BatchCheckLayerAvailability
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: "*"
+
+  # Optional: A quick preflight check for model.tar.gz
+  ModelArtifactCheck:
+    Type: AWS::CloudFormation::CustomResource
+    Properties:
+      ServiceToken: !GetAtt PreflightLambda.Arn
+      Bucket: !Ref ArtifactsBucketName
+      Key: !Ref ModelDataS3Key
+
+  PreflightLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-${AWS::StackName}-preflight-lambda"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: lambda.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: preflight
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: s3:HeadObject
+                Resource: 
+                  - !Sub "arn:aws:s3:::${ArtifactsBucketName}"
+                  - !Sub "arn:aws:s3:::${ArtifactsBucketName}/*"
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: "*"
+
+  PreflightLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${ProjectName}-${AWS::StackName}-preflight"
+      Runtime: python3.12
+      Handler: index.handler
+      Timeout: 30
+      Role: !GetAtt PreflightLambdaRole.Arn
+      Code:
+        ZipFile: |
+          import boto3, json, urllib3
+          s3=boto3.client("s3")
+          http=urllib3.PoolManager()
+          def _send(event, context, status, data, reason=""):
+              body={"Status":status,"Reason":reason or "OK","PhysicalResourceId":context.log_stream_name,
+                    "StackId":event["StackId"],"RequestId":event["RequestId"],"LogicalResourceId":event["LogicalResourceId"],
+                    "Data":data}
+              http.request("PUT", event["ResponseURL"], body=json.dumps(body).encode("utf-8"), headers={"content-type":""})
+          def handler(event, context):
+              try:
+                  bucket=event["ResourceProperties"]["Bucket"]
+                  key=event["ResourceProperties"]["Key"]
+                  if event["RequestType"] in ("Create","Update"):
+                      s3.head_object(Bucket=bucket, Key=key)
+                  _send(event, context, "SUCCESS", {"checked":f"s3://{bucket}/{key}"})
+              except Exception as e:
+                  _send(event, context, "FAILED", {"error":str(e)}, reason=str(e))
+
+  SageMakerModel:
+      Type: AWS::SageMaker::Model
+      DependsOn: ModelArtifactCheck
+      Properties:
+        ModelName: !Sub "${ProjectName}-${AWS::StackName}-lgbm-model"
+        ExecutionRoleArn: !If [CreateSageMakerRole, !GetAtt SageMakerExecutionRole.Arn, !Ref ExistingSageMakerExecutionRoleArn]
+        PrimaryContainer:
+          Image: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AWS::StackName}-inference:${ContainerImageTag}"
+          ModelDataUrl: !Sub "s3://${ArtifactsBucketName}/${ModelDataS3Key}"
+
+  CutoffStateMachineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-${AWS::StackName}-cutoff-sfn-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: states.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: cutoff-sfn
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sagemaker:CreateTransformJob
+                  - sagemaker:DescribeTransformJob
+                  - sagemaker:CreateProcessingJob
+                  - sagemaker:DescribeProcessingJob
+                Resource: "*"
+              - Effect: Allow
+                Action: iam:PassRole
+                Resource: !If [CreateSageMakerRole, !GetAtt SageMakerExecutionRole.Arn, !Ref ExistingSageMakerExecutionRoleArn]
+
+  CutoffStateMachine:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      StateMachineName: !Ref CutoffStateMachineName
+      RoleArn: !GetAtt CutoffStateMachineRole.Arn
+      DefinitionString: |
+        {
+          "Comment": "GeoAI multi-cutoff batch transform + evaluation + comparison",
+          "StartAt": "RunCutoffs",
+          "States": {
+            "RunCutoffs": {
+              "Type": "Map",
+              "ItemsPath": "$.cutoffs",
+              "MaxConcurrency": 3,
+              "Parameters": {
+                "cutoff.$": "$$.Map.Item.Value",
+                "run_date.$": "$.run_date",
+                "bucket.$": "$.bucket",
+                "model_name.$": "$.model_name",
+                "transform_instance_type.$": "$.transform_instance_type",
+                "transform_instance_count.$": "$.transform_instance_count",
+                "eval_image_uri.$": "$.eval_image_uri",
+                "sagemaker_role_arn.$": "$.sagemaker_role_arn",
+                "target_col.$": "$.target_col"
+              },
+              "Iterator": {
+                "StartAt": "CreateTransformJob",
+                "States": {
+                  "CreateTransformJob": {
+                    "Type": "Task",
+                    "Resource": "arn:aws:states:::aws-sdk:sagemaker:createTransformJob",
+                    "Parameters": {
+                      "TransformJobName.$": "States.Format('geoai-{}-{}', $.cutoff, $.run_date)",
+                      "ModelName.$": "$.model_name",
+                      "BatchStrategy": "MultiRecord",
+                      "MaxConcurrentTransforms": 1,
+                      "MaxPayloadInMB": 50,
+                      "TransformInput": {
+                        "DataSource": {
+                          "S3DataSource": {
+                            "S3DataType": "S3Prefix",
+                            "S3Uri.$": "States.Format('s3://{}/batch/input/run_date={}/cutoff={}/', $.bucket, $.run_date, $.cutoff)"
+                          }
+                        },
+                        "ContentType": "text/csv",
+                        "SplitType": "Line"
+                      },
+                      "TransformOutput": {
+                        "S3OutputPath.$": "States.Format('s3://{}/batch/output/run_date={}/cutoff={}/', $.bucket, $.run_date, $.cutoff)",
+                        "AssembleWith": "Line",
+                        "Accept": "text/csv"
+                      },
+                      "TransformResources": {
+                        "InstanceType.$": "$.transform_instance_type",
+                        "InstanceCount.$": "$.transform_instance_count"
+                      }
+                    },
+                    "Next": "WaitTransform"
+                  },
+                  "WaitTransform": {
+                    "Type": "Task",
+                    "Resource": "arn:aws:states:::aws-sdk:sagemaker:describeTransformJob",
+                    "Parameters": {
+                      "TransformJobName.$": "States.Format('geoai-{}-{}', $.cutoff, $.run_date)"
+                    },
+                    "Next": "TransformDone?"
+                  },
+                  "TransformDone?": {
+                    "Type": "Choice",
+                    "Choices": [
+                      {
+                        "Variable": "$.TransformJobStatus",
+                        "StringEquals": "Completed",
+                        "Next": "CreateEvalProcessingJob"
+                      },
+                      {
+                        "Variable": "$.TransformJobStatus",
+                        "StringEquals": "Failed",
+                        "Next": "FailCutoff"
+                      },
+                      {
+                        "Variable": "$.TransformJobStatus",
+                        "StringEquals": "Stopped",
+                        "Next": "FailCutoff"
+                      }
+                    ],
+                    "Default": "SleepTransform"
+                  },
+                  "SleepTransform": {
+                    "Type": "Wait",
+                    "Seconds": 30,
+                    "Next": "WaitTransform"
+                  },
+                  "CreateEvalProcessingJob": {
+                    "Type": "Task",
+                    "Resource": "arn:aws:states:::aws-sdk:sagemaker:createProcessingJob",
+                    "Parameters": {
+                      "ProcessingJobName.$": "States.Format('geoai-eval-{}-{}', $.cutoff, $.run_date)",
+                      "RoleArn.$": "$.sagemaker_role_arn",
+                      "ProcessingResources": {
+                        "ClusterConfig": {
+                          "InstanceCount": 1,
+                          "InstanceType": "ml.m5.large",
+                          "VolumeSizeInGB": 20
+                        }
+                      },
+                      "AppSpecification": {
+                        "ImageUri.$": "$.eval_image_uri"
+                      },
+                      "Environment": {
+                        "TARGET_COL.$": "$.target_col",
+                        "CUTOFF.$": "$.cutoff"
+                      },
+                      "ProcessingInputs": [
+                        {
+                          "InputName": "input-data",
+                          "S3Input": {
+                            "S3Uri.$": "States.Format('s3://{}/batch/input/run_date={}/cutoff={}/', $.bucket, $.run_date, $.cutoff)",
+                            "LocalPath": "/opt/ml/processing/input",
+                            "S3DataType": "S3Prefix",
+                            "S3InputMode": "File"
+                          }
+                        },
+                        {
+                          "InputName": "predictions",
+                          "S3Input": {
+                            "S3Uri.$": "States.Format('s3://{}/batch/output/run_date={}/cutoff={}/', $.bucket, $.run_date, $.cutoff)",
+                            "LocalPath": "/opt/ml/processing/predictions",
+                            "S3DataType": "S3Prefix",
+                            "S3InputMode": "File"
+                          }
+                        }
+                      ],
+                      "ProcessingOutputConfig": {
+                        "Outputs": [
+                          {
+                            "OutputName": "eval-output",
+                            "S3Output": {
+                              "S3Uri.$": "States.Format('s3://{}/eval/run_date={}/cutoff={}/', $.bucket, $.run_date, $.cutoff)",
+                              "LocalPath": "/opt/ml/processing/output",
+                              "S3UploadMode": "EndOfJob"
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    "Next": "WaitEval"
+                  },
+                  "WaitEval": {
+                    "Type": "Task",
+                    "Resource": "arn:aws:states:::aws-sdk:sagemaker:describeProcessingJob",
+                    "Parameters": {
+                      "ProcessingJobName.$": "States.Format('geoai-eval-{}-{}', $.cutoff, $.run_date)"
+                    },
+                    "Next": "EvalDone?"
+                  },
+                  "EvalDone?": {
+                    "Type": "Choice",
+                    "Choices": [
+                      {
+                        "Variable": "$.ProcessingJobStatus",
+                        "StringEquals": "Completed",
+                        "Next": "CutoffDone"
+                      },
+                      {
+                        "Variable": "$.ProcessingJobStatus",
+                        "StringEquals": "Failed",
+                        "Next": "FailCutoff"
+                      },
+                      {
+                        "Variable": "$.ProcessingJobStatus",
+                        "StringEquals": "Stopped",
+                        "Next": "FailCutoff"
+                      }
+                    ],
+                    "Default": "SleepEval"
+                  },
+                  "SleepEval": {
+                    "Type": "Wait",
+                    "Seconds": 30,
+                    "Next": "WaitEval"
+                  },
+                  "CutoffDone": { "Type": "Pass", "End": true },
+                  "FailCutoff": { "Type": "Fail", "Cause": "Cutoff run failed" }
+                }
+              },
+              "ResultPath": "$.cutoff_runs",
+              "Next": "CreateCompareProcessingJob"
+            },
+            "CreateCompareProcessingJob": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::aws-sdk:sagemaker:createProcessingJob",
+              "Parameters": {
+                "ProcessingJobName.$": "States.Format('geoai-compare-{}', $.run_date)",
+                "RoleArn.$": "$.sagemaker_role_arn",
+                "ProcessingResources": {
+                  "ClusterConfig": {
+                    "InstanceCount": 1,
+                    "InstanceType": "ml.m5.large",
+                    "VolumeSizeInGB": 20
+                  }
+                },
+                "AppSpecification": { "ImageUri.$": "$.compare_image_uri" },
+                "Environment": {
+                  "RUN_DATE.$": "$.run_date"
+                },
+                "ProcessingInputs": [
+                  {
+                    "InputName": "eval-root",
+                    "S3Input": {
+                      "S3Uri.$": "States.Format('s3://{}/eval/run_date={}/', $.bucket, $.run_date)",
+                      "LocalPath": "/opt/ml/processing/eval",
+                      "S3DataType": "S3Prefix",
+                      "S3InputMode": "File"
+                    }
+                  }
+                ],
+                "ProcessingOutputConfig": {
+                  "Outputs": [
+                    {
+                      "OutputName": "compare-output",
+                      "S3Output": {
+                        "S3Uri.$": "States.Format('s3://{}/compare/run_date={}/', $.bucket, $.run_date)",
+                        "LocalPath": "/opt/ml/processing/output",
+                        "S3UploadMode": "EndOfJob"
+                      }
+                    }
+                  ]
+                }
+              },
+              "Next": "Success"
+            },
+            "Success": { "Type": "Succeed" }
+          }
+        }
+    
+  TransformSchedulerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-${AWS::StackName}-transform-scheduler"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: lambda.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: transform-scheduler
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sagemaker:CreateTransformJob
+                  - sagemaker:DescribeTransformJob
+                  - sagemaker:StopTransformJob
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - iam:PassRole
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:ListBucket
+                Resource:
+                  - !Sub "arn:aws:s3:::${ArtifactsBucketName}"
+                  - !Sub "arn:aws:s3:::${ArtifactsBucketName}/*"
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: "*"
+
+  TransformSchedulerLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${ProjectName}-${AWS::StackName}-transform-scheduler"
+      Runtime: python3.12
+      Handler: lambda.transform_scheduler.handler
+      Timeout: 60
+      Role: !GetAtt TransformSchedulerRole.Arn
+      Code:
+        S3Bucket: !Ref LambdaCodeS3Bucket
+        S3Key: !Ref LambdaCodeS3Key
+      Environment:
+        Variables:
+          STATE_MACHINE_ARN: !GetAtt CutoffStateMachine.Arn
+          ARTIFACTS_BUCKET: !Ref ArtifactsBucketName
+          MODEL_NAME: !GetAtt SageMakerModel.ModelName
+          SAGEMAKER_ROLE_ARN: !If [CreateSageMakerRole, !GetAtt SageMakerExecutionRole.Arn, !Ref ExistingSageMakerExecutionRoleArn]
+          TRANSFORM_INSTANCE_TYPE: !Ref TransformInstanceType
+          TRANSFORM_INSTANCE_COUNT: "1"
+          EVAL_IMAGE_URI: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AWS::StackName}-evalprocess:${ContainerImageTag}"
+          COMPARE_IMAGE_URI: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AWS::StackName}-compareprocess:${ContainerImageTag}"
+          TARGET_COL: "yield_bu_acre"
+          CUTOFFS: '["EARLY","MID","END"]'
+
+  DailyScheduleRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub "${ProjectName}-${AWS::StackName}-daily-transform"
+      ScheduleExpression: !Ref ScheduleExpression
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt TransformSchedulerLambda.Arn
+          Id: "TransformSchedulerLambda"
+
+  AllowEventBridgeInvoke:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref TransformSchedulerLambda
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt DailyScheduleRule.Arn
+
+  # ==========================================================
+  # ECS Cluster (Ingest)
+  # ==========================================================
+  IngestECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Sub "${ProjectName}-${Environment}-ingest-cluster"
+
+  # IngestLogGroup:
+  #   Type: AWS::Logs::LogGroup
+  #   Properties:
+  #     LogGroupName: !Sub "/ecs/${ProjectName}-${Environment}-ingest"
+  #     RetentionInDays: 7
+
+  # ==========================================================
+  # IAM Role - ECS Execution Role 
+  # ==========================================================
+  EcsTaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: ecsTaskExecutionRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+
+      # Needed for ECS to pull ECR images + write CloudWatch logs (recommended)
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+
+      Policies:
+        - PolicyName: ecsTaskExecutionRoleInline
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource:
+                  - !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:geoai/gee/service_account_json*"
+                  - !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:geoai/nass/quickstats_api_key*"
+
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:AbortMultipartUpload
+                Resource: !Sub "arn:aws:s3:::${ArtifactBucket}/*"
+
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                Resource: !Sub "arn:aws:s3:::${ArtifactBucket}"
+
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: "*"
+
+  # ==========================================================
+  # IAM Role - ECS Task
+  # ==========================================================
+  IngestTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-${Environment}-ingest-task-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: ingest-policy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource:
+                  - !Sub "arn:aws:secretsmanager:ap-south-1:172023108179:secret:geoai/gee/service_account_json-MEHEn"
+                  - !Sub "arn:aws:secretsmanager:ap-south-1:172023108179:secret:geoai/nass/quickstats_api_key-DViVxU"
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:AbortMultipartUpload
+                  - s3:ListBucket
+                Resource:
+                  - !Sub "arn:aws:s3:::${ArtifactBucket}"
+                  - !Sub "arn:aws:s3:::${ArtifactBucket}/*"
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: "*"
+
+  # ==========================================================
+  # ECS Task Definition
+  # ==========================================================
+  IngestTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub "${ProjectName}-${Environment}-ingest"
+      Cpu: 1024
+      Memory: 4096
+      RequiresCompatibilities: [FARGATE]
+      NetworkMode: awsvpc
+      ExecutionRoleArn: !GetAtt EcsTaskExecutionRole.Arn
+      TaskRoleArn: !GetAtt IngestTaskRole.Arn
+      ContainerDefinitions:
+        - Name: ingest
+          #Image: !Ref ECRImage
+          Image: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AWS::StackName}-ingestprocess:${ContainerImageTag}"
+          Essential: true
+          # LogConfiguration:
+          #   LogDriver: awslogs
+          #   Options:
+          #     awslogs-group: !Ref IngestLogGroup
+          #     awslogs-region: !Ref AWS::Region
+          #     awslogs-stream-prefix: ecs
+
+  # ==========================================================
+  # Step Functions Role
+  # ==========================================================
+  IngestStepFunctionsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-${Environment}-ingest-sfn-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: states.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: ingest-sfn-policy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+
+              # Allow Step Functions to run ECS tasks
+              - Effect: Allow
+                Action:
+                  - ecs:RunTask
+                  - ecs:StopTask
+                  - ecs:DescribeTasks
+                Resource: "*"
+
+              # REQUIRED: Allow passing ECS roles
+              - Effect: Allow
+                Action: iam:PassRole
+                Resource:
+                  - !GetAtt EcsTaskExecutionRole.Arn
+                  - !GetAtt IngestTaskRole.Arn
+                Condition:
+                  StringEquals:
+                    iam:PassedToService: ecs-tasks.amazonaws.com           
+
+  # ==========================================================
+  # Step Function - Ingestion Orchestration
+  # ==========================================================
+  IngestStateMachine:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      StateMachineName: !Sub "${ProjectName}-${Environment}-ingestion"
+      RoleArn: !GetAtt IngestStepFunctionsRole.Arn
+      DefinitionString:
+        Fn::Sub:
+          - |
+            {
+              "StartAt": "RunIngest",
+              "States": {
+                "RunIngest": {
+                  "Type": "Task",
+                  "Resource": "arn:aws:states:::ecs:runTask",
+                  "Parameters": {
+                    "Cluster": "${ClusterArn}",
+                    "TaskDefinition": "${TaskDefArn}",
+                    "LaunchType": "FARGATE",
+                    "NetworkConfiguration": {
+                      "AwsvpcConfiguration": {
+                        "Subnets": ["${Subnet1}", "${Subnet2}", "${Subnet3}"],
+                        "SecurityGroups": ["${SecurityGroup1}"],
+                        "AssignPublicIp": "ENABLED"
+                      }
+                    },
+                    "Overrides": {
+                      "ContainerOverrides": [
+                        {
+                          "Name": "ingest",
+                          "Command.$": "States.Array('python','/app/ingest_raw.py','--aws-region','${AwsRegion}','--dataset',$.dataset,'--granularity',$.granularity,'--start',$.start,'--end',$.end,'--gee-secret-id','geoai/gee/service_account_json','--out-s3','${OutS3}','--state-fips',$.state_fips,'--county-fips',$.county_fips)"
+                        }
+                      ]
+                    }
+                  },
+                  "Retry": [
+                    {
+                      "ErrorEquals": ["States.ALL"],
+                      "IntervalSeconds": 60,
+                      "MaxAttempts": 3,
+                      "BackoffRate": 2
+                    }
+                  ],
+                  "End": true
+                }
+              }
+            }
+          - AwsRegion: !Ref AWS::Region
+            OutS3: !Sub "s3://${ArtifactBucket}/raw/"
+            ClusterArn: !GetAtt IngestECSCluster.Arn
+            TaskDefArn: !Ref IngestTaskDefinition
+
+            # Hardcode (permanent demo) OR use parameters
+            Subnet1: "subnet-08b288bb628297dd0"
+            Subnet2: "subnet-07efeb7098bafd015"
+            Subnet3: "subnet-0b82830335edae1aa"
+            SecurityGroup1: "sg-00e1e5d7aa702f6ea"
+
+  # ==========================================================
+  # SNS + Alarm
+  # ==========================================================
+  # IngestAlertTopic:
+  #   Type: AWS::SNS::Topic
+  #   Properties:
+  #     TopicName: !Sub "${ProjectName}-${Environment}-ingest-alerts"
+
+  # IngestFailureAlarm:
+  #   Type: AWS::CloudWatch::Alarm
+  #   Properties:
+  #     AlarmName: !Sub "${ProjectName}-${Environment}-ingest-failure"
+  #     Namespace: AWS/States
+  #     MetricName: ExecutionsFailed
+  #     Dimensions:
+  #       - Name: StateMachineArn
+  #         Value: !Ref IngestStateMachine
+  #     Statistic: Sum
+  #     Period: 300
+  #     EvaluationPeriods: 1
+  #     Threshold: 1
+  #     ComparisonOperator: GreaterThanOrEqualToThreshold
+  #     AlarmActions:
+  #       - !Ref IngestAlertTopic
+
+
+Outputs:
+  ArtifactsBucketName:
+    Value: !Ref ArtifactsBucketName
+  EcrRepositoryUri:
+    Value: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AWS::StackName}-inference"
+  SageMakerModelName:
+    Value: !GetAtt SageMakerModel.ModelName  
+  IngestStateMachineArn:
+    Value: !Ref IngestStateMachine
+  IngestClusterName:
+    Value: !Ref IngestECSCluster

@@ -144,6 +144,7 @@ def main():
         packages = [
             ("model_registry_loader", "model_registry_loader.zip"),
             ("eval_lambda", "eval_lambda.zip"),
+            ("prediction_rename_lambda", "prediction_rename_lambda.zip"),
         ]
         for folder, zipname in packages:
             src = LAMBDA_SRC / folder

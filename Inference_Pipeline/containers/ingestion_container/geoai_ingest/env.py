@@ -17,18 +17,26 @@ class Settings:
     nass_api_key_secret_id: str
     yield_years: str
 
+def _get_region() -> str:
+    return os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION") or "ap-south-1"
+
 def load_settings() -> Settings:
+    # SageMaker Processing may omit env vars if the value resolves to null.
+    # Use getenv() with safe defaults for optional values to avoid KeyError.
+    ingest_start = os.getenv("INGEST_START", "")
+    ingest_end = os.getenv("INGEST_END", "")
+
     return Settings(
-        aws_region=os.environ["AWS_REGION"],
+        aws_region=_get_region(),
         data_bucket=os.environ["DATA_BUCKET"],
         raw_prefix=os.environ.get("RAW_PREFIX", "raw"),
 
-        state_fips=str(os.environ["STATE_FIPS"]).zfill(2),
+        state_fips=str(os.environ.get("STATE_FIPS", "0")).zfill(2),
         county_fips=("ALL" if os.environ.get("COUNTY_FIPS", "ALL").upper() == "ALL"
                      else str(os.environ["COUNTY_FIPS"]).zfill(3)),
 
-        ingest_start=os.environ["INGEST_START"],
-        ingest_end=os.environ["INGEST_END"],
+        ingest_start=ingest_start.strip(),
+        ingest_end=ingest_end.strip(),
 
         ndvi_granularity=os.environ.get("NDVI_GRANULARITY", "daily"),
         era5_granularity=os.environ.get("ERA5_GRANULARITY", "daily"),

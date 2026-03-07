@@ -1,0 +1,20 @@
+{
+  "run_date": "2026-03-05",
+  "state_fips": "19",
+  "county_fips": "ALL",
+  "predict_year": "2025",
+  "steps": {
+    "ingest": false,
+    "features": false,
+    "model_registry": true,
+    "inference": false,
+    "evaluation": false,
+    "summary": false
+  },
+  "feature_seasons": ["jun01"],
+  "model_filter": {
+    "names": [
+      "Jun01_LightGBM-limited_withstorm"
+    ]
+  }
+}

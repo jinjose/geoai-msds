@@ -1,6 +1,24 @@
 import pandas as pd
 import requests
 
+import json
+
+def _parse_years_any(years_str: str | None) -> list[int]:
+    if years_str is None:
+        return []
+    s = str(years_str).strip()
+    if not s:
+        return []
+    # Accept JSON list string like "[2014, 2015]" or CSV "2014,2015"
+    if s.startswith("["):
+        try:
+            arr = json.loads(s)
+            return [int(x) for x in arr]
+        except Exception:
+            pass
+    return [int(x.strip()) for x in s.split(",") if x.strip()]
+
+
 
 # ----------------------------
 # Incremental ingestion helpers (DynamoDB)
@@ -89,7 +107,7 @@ def ingest_yield(api_key: str, years_csv: str | None, state_fips: str, county_fi
 
     years = []
     if years_csv and str(years_csv).strip():
-        years = [int(x.strip()) for x in str(years_csv).split(",") if x.strip()]
+        years = _parse_years_any(years_csv)
     else:
         last_year = _registry_get_year(dataset)
         max_year = datetime.utcnow().year - 1  # last complete year

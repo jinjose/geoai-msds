@@ -1,0 +1,45 @@
+{
+  "run_date": "2026-03-05",
+  "state_fips": "19",
+  "county_fips": "ALL",
+  "predict_year": "2025",
+  "backfill_start_year": "2014",
+  "steps": {
+    "ingest": true,
+    "features": false,
+    "model_registry": false,
+    "inference": false,
+    "evaluation": false,
+    "summary": false
+  },
+  "feature_seasons": ["jun01"],
+  "ingest": {
+    "start": "",
+    "end": "",
+    "ndvi_granularity": "daily",
+    "era5_granularity": "daily",
+    "storm_granularity": "daily",
+    "storm_wind_cutoff_mph": 58,
+    "nws_user_agent": "geoai-demo (Mohan) contact: you@example.com",
+    "yield_years": [2014,2015,2016,2017,2018,2019,2020,2021,2022,2023,2024]
+  }
+}
+
+
+
+##### latest
+
+{
+  "run_date": "2026-03-05",
+  "predict_year": "2025",
+  "state_fips": "19",
+  "county_fips": "ALL",
+  "steps": {
+    "ingest": true,
+    "features": false,
+    "model_registry": false,
+    "inference": false,
+    "evaluation": false,
+    "summary": false
+  }
+}

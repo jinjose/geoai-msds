@@ -148,6 +148,22 @@ Resources:
         Variables:
           DATA_BUCKET: !Ref DataBucketName
 
+  PredictionRenameLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${ProjectName}-prediction-rename"
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Runtime: python3.12
+      Handler: app.lambda_handler
+      Timeout: 60
+      MemorySize: 256
+      Code:
+        S3Bucket: !Ref ArtifactsBucketName
+        S3Key: !Sub "${LambdaArtifactsPrefix}/prediction_rename_lambda.zip"
+      Environment:
+        Variables:
+          DATA_BUCKET: !Ref DataBucketName
+
   SageMakerExecutionRole:
     Type: AWS::IAM::Role
     Properties:
@@ -241,6 +257,8 @@ Resources:
                 Resource:
                   - !GetAtt ModelRegistryLoaderLambda.Arn
                   - !GetAtt EvalSummaryLambda.Arn
+                  - !GetAtt PredictionRenameLambda.Arn
+
               - Effect: Allow
                 Action:
                   - sagemaker:CreateProcessingJob
@@ -251,15 +269,29 @@ Resources:
                   - sagemaker:CreateTransformJob
                   - sagemaker:DescribeTransformJob
                   - sagemaker:StopTransformJob
+                  - sagemaker:AddTags
                 Resource: "*"
+
               - Effect: Allow
                 Action: iam:PassRole
                 Resource: !GetAtt SageMakerExecutionRole.Arn
+
               - Effect: Allow
                 Action: [s3:GetObject, s3:PutObject, s3:ListBucket]
                 Resource:
                   - !Sub "arn:aws:s3:::${DataBucketName}"
                   - !Sub "arn:aws:s3:::${DataBucketName}/*"
+
+              - Effect: Allow
+                Action:
+                  - events:PutRule
+                  - events:PutTargets
+                  - events:DescribeRule
+                  - events:DeleteRule
+                  - events:RemoveTargets
+                Resource:
+                  - !Sub "arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/StepFunctionsGetEventsForSageMakerProcessingJobsRule"
+                  - !Sub "arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/StepFunctionsGetEventsForSageMakerTransformJobsRule"
   
   GeoAiStateMachine:
     Type: AWS::StepFunctions::StateMachine
@@ -349,7 +381,7 @@ Resources:
                   "Next": "DecideFeatures"
                 }
               ],
-              "Default": "RunIngestion"
+              "Default": "EnsureIngest"
             },
             "DecideFeatures": {
               "Type": "Choice",
@@ -371,21 +403,21 @@ Resources:
                     { "Variable": "$.steps.model_registry", "IsPresent": false },
                     { "Variable": "$.steps.model_registry", "BooleanEquals": false }
                   ],
-                  "Next": "CheckModelsProvided"
+                  "Next": "EnsureModelsIfInference"
                 }
               ],
               "Default": "LoadModelRegistry"
             },
-            "CheckModelsProvided": {
+            "EnsureModelsIfInference": {
               "Type": "Choice",
               "Choices": [
                 {
-                  "Variable": "$.seasons",
-                  "IsPresent": true,
+                  "Variable": "$.steps.inference",
+                  "BooleanEquals": false,
                   "Next": "DecideInference"
                 },
                 {
-                  "Variable": "$.model_registry",
+                  "Variable": "$.seasons.models",
                   "IsPresent": true,
                   "Next": "DecideInference"
                 }
@@ -395,7 +427,7 @@ Resources:
             "MissingModelsFail": {
               "Type": "Fail",
               "Error": "MissingModels",
-              "Cause": "steps.model_registry=false but model_registry.models is missing in input"
+              "Cause": "steps.model_registry=false and steps.inference=true but seasons.models is missing in input. Provide seasons.models or enable steps.model_registry."
             },
             "DecideInference": {
               "Type": "Choice",
@@ -433,9 +465,44 @@ Resources:
             "Done": {
               "Type": "Succeed"
             },
+            "EnsureIngest": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Or": [
+                    { "Variable": "$.ingest", "IsPresent": false },
+                    { "Variable": "$.ingest.start", "IsPresent": false },
+                    { "Variable": "$.ingest.end", "IsPresent": false },
+                    { "Variable": "$.ingest.ndvi_granularity", "IsPresent": false },
+                    { "Variable": "$.ingest.era5_granularity", "IsPresent": false },
+                    { "Variable": "$.ingest.storm_granularity", "IsPresent": false },
+                    { "Variable": "$.ingest.storm_wind_cutoff_mph", "IsPresent": false },
+                    { "Variable": "$.ingest.nws_user_agent", "IsPresent": false },
+                    { "Variable": "$.ingest.yield_years", "IsPresent": false }
+                  ],
+                  "Next": "SetDefaultIngest"
+                }
+              ],
+              "Default": "RunIngestion"
+            },
+            "SetDefaultIngest": {
+              "Type": "Pass",
+              "Result": {
+                "start": "",
+                "end": "",
+                "ndvi_granularity": "daily",
+                "era5_granularity": "daily",
+                "storm_granularity": "daily",
+                "storm_wind_cutoff_mph": 58,
+                "nws_user_agent": "geoai-demo (Mohan) contact: you@example.com",
+                "yield_years": []
+              },
+              "ResultPath": "$.ingest",
+              "Next": "RunIngestion"
+            },
             "RunIngestion": {
               "Type": "Task",
-              "Resource": "arn:aws:states:::aws-sdk:sagemaker:createProcessingJob",
+              "Resource": "arn:aws:states:::sagemaker:createProcessingJob.sync",
               "Parameters": {
                 "ProcessingJobName.$": "States.Format('geoai-ingest-{}-{}', $.run_date, States.ArrayGetItem(States.StringSplit(States.UUID(), '-'), 4))",
                 "RoleArn": "${SageMakerExecutionRole.Arn}",
@@ -445,21 +512,21 @@ Resources:
                   "REGISTRY_TABLE": "${ProjectName}-ingestion-registry",
                   "STATE_FIPS.$": "$.state_fips",
                   "COUNTY_FIPS.$": "$.county_fips",
-                  "BACKFILL_START_YEAR.$": "$.backfill_start_year",
+                  "BACKFILL_START_YEAR.$": "States.Format('{}', $.backfill_start_year)",
                   "GEE_SA_SECRET_ID": "${GeeServiceAccountSecretId}",
                   "NASS_API_KEY_SECRET_ID": "${NassQuickstatsApiKeySecretId}",
                   "AWS_REGION": "${AWS::Region}",
                   "AWS_DEFAULT_REGION": "${AWS::Region}",
                   "STORM_GRANULARITY.$": "$.ingest.storm_granularity",
                   "STORM_ENABLED": "true",
-                  "STORM_WIND_CUTOFF_MPH.$": "$.ingest.storm_wind_cutoff_mph",
+                  "STORM_WIND_CUTOFF_MPH.$": "States.Format('{}', $.ingest.storm_wind_cutoff_mph)",
                   "COUNTY_SHP_DIR": "/opt/program/data/counties",
                   "NWS_USER_AGENT.$": "$.ingest.nws_user_agent",
-                  "INGEST_START.$": "$.ingest.start",
-                  "INGEST_END.$": "$.ingest.end",
+                  "INGEST_START.$": "States.Format('{}', $.ingest.start)",
+                  "INGEST_END.$": "States.Format('{}', $.ingest.end)",
                   "NDVI_GRANULARITY.$": "$.ingest.ndvi_granularity",
                   "ERA5_GRANULARITY.$": "$.ingest.era5_granularity",
-                  "YIELD_YEARS.$": "$.ingest.yield_years"
+                  "YIELD_YEARS.$": "States.JsonToString($.ingest.yield_years)"
                 },
                 "ProcessingResources": {
                   "ClusterConfig": {
@@ -509,7 +576,7 @@ Resources:
                   },
                   "RunFeatureProcessing": {
                     "Type": "Task",
-                    "Resource": "arn:aws:states:::aws-sdk:sagemaker:createProcessingJob",
+                    "Resource": "arn:aws:states:::sagemaker:createProcessingJob.sync",
                     "Parameters": {
                       "ProcessingJobName.$": "States.Format('geoai-feat-{}-{}-{}', $.feature_season, $.run_date, States.ArrayGetItem(States.StringSplit(States.UUID(), '-'), 4))",
                       "RoleArn": "${SageMakerExecutionRole.Arn}",
@@ -522,7 +589,7 @@ Resources:
                         "COUNTY_FIPS.$": "$.county_fips",
                         "RUN_DATE.$": "$.run_date",
                         "FEATURE_SEASON.$": "$.feature_season",
-                        "BACKFILL_START_YEAR.$": "$.backfill_start_year",
+                        "BACKFILL_START_YEAR.$": "States.Format('{}', $.backfill_start_year)",
                         "PREDICT_YEAR.$": "States.Format('{}', $.predict_year)",
                         "NDVI_GRANULARITY.$": "$.ingest.ndvi_granularity",
                         "NDVI_FALLBACK_MODE": "auto",
@@ -693,10 +760,23 @@ Resources:
                         "CheckStatus": {
                           "Type": "Choice",
                           "Choices": [
-                            { "Variable": "$.describe.TransformJobStatus", "StringEquals": "Completed", "Next": "DeleteModel" },
+                            { "Variable": "$.describe.TransformJobStatus", "StringEquals": "Completed", "Next": "CopyPredictionOutput" },
                             { "Variable": "$.describe.TransformJobStatus", "StringEquals": "Failed", "Next": "Fail" }
                           ],
                           "Default": "Wait20s"
+                        },
+                        "CopyPredictionOutput": {
+                          "Type": "Task",
+                          "Resource": "arn:aws:states:::lambda:invoke",
+                          "Parameters": {
+                            "FunctionName": "${PredictionRenameLambda.Arn}",
+                            "Payload": {
+                              "source_s3_uri.$": "States.Format('s3://${DataBucketName}/predictions/state_fips={}/county_fips={}/predict_year={}/feature_season={}/run_date={}/model={}/part.parquet.out', $.state_fips, $.county_fips, $.predict_year, $.feature_season, $.run_date, $.model_name)",
+                              "dest_s3_uri.$": "States.Format('s3://${DataBucketName}/predictions/state_fips={}/county_fips={}/predict_year={}/feature_season={}/run_date={}/model={}/part.parquet', $.state_fips, $.county_fips, $.predict_year, $.feature_season, $.run_date, $.model_name)"
+                            }
+                          },
+                          "ResultPath": "$.copy_prediction_output",
+                          "Next": "DeleteModel"
                         },
                         "DeleteModel": {
                           "Type": "Task",
@@ -721,7 +801,7 @@ Resources:
             },
             "RunEvaluation": {
               "Type": "Task",
-              "Resource": "arn:aws:states:::aws-sdk:sagemaker:createProcessingJob",
+              "Resource": "arn:aws:states:::sagemaker:createProcessingJob.sync",
               "Parameters": {
                 "ProcessingJobName.$": "States.Format('geoai-eval-{}-{}', $.run_date, States.ArrayGetItem(States.StringSplit(States.UUID(), '-'), 4))",
                 "RoleArn": "${SageMakerExecutionRole.Arn}",

@@ -1,0 +1,4 @@
+aws_region: ap-south-1
+model_name: geoai-lgbm-group6-model
+input_s3: s3://geoai-bucket/features/
+output_s3: s3://geoai-bucket/predictions/

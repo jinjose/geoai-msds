@@ -1,0 +1,195 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: GeoAI BYOC Batch Transform (daily) – S3, ECR, IAM, Lambda, EventBridge, SageMaker Model.
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: geoai-byoc
+  EcrImageUri:
+    Type: String
+  BucketName:
+    Type: String
+    Default: ""
+  ScheduleExpression:
+    Type: String
+    Default: "cron(0 2 * * ? *)"
+  InstanceType:
+    Type: String
+    Default: "ml.m5.large"
+  InstanceCount:
+    Type: Number
+    Default: 1
+
+Conditions:
+  CreateBucket: !Equals [!Ref BucketName, ""]
+
+Resources:
+  ArtifactsBucket:
+    Type: AWS::S3::Bucket
+    Condition: CreateBucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  GeoAIEcrRepo:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub "${ProjectName}-repo"
+
+  SageMakerExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-sagemaker-exec-${AWS::StackName}"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: sagemaker.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: s3-access
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [ "s3:ListBucket" ]
+                Resource:
+                  - !If [CreateBucket, !GetAtt ArtifactsBucket.Arn, !Sub "arn:aws:s3:::${BucketName}"]
+              - Effect: Allow
+                Action: [ "s3:GetObject", "s3:PutObject" ]
+                Resource:
+                  - !If [CreateBucket, !Sub "${ArtifactsBucket.Arn}/*", !Sub "arn:aws:s3:::${BucketName}/*" ]
+        - PolicyName: logs-min
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [ "logs:CreateLogGroup","logs:CreateLogStream","logs:PutLogEvents" ]
+                Resource: "*"
+
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-lambda-${AWS::StackName}"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: lambda.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: lambda-logs
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [ "logs:CreateLogGroup","logs:CreateLogStream","logs:PutLogEvents" ]
+                Resource: "*"
+        - PolicyName: sagemaker-transform
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [ "sagemaker:CreateTransformJob", "sagemaker:DescribeTransformJob" ]
+                Resource: "*"
+        - PolicyName: pass-role
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [ "iam:PassRole" ]
+                Resource: !GetAtt SageMakerExecutionRole.Arn
+
+  # SageMaker Model requires ModelDataUrl in S3. We standardize the location.
+  SageMakerModel:
+    Type: AWS::SageMaker::Model
+    Properties:
+      ModelName: !Sub "${ProjectName}-model-${AWS::StackName}"
+      ExecutionRoleArn: !GetAtt SageMakerExecutionRole.Arn
+      PrimaryContainer:
+        Image: !Ref EcrImageUri
+        ModelDataUrl: !Sub "s3://${BucketOut}/model/model.tar.gz"
+
+  TransformScheduler:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${ProjectName}-transform-scheduler-${AWS::StackName}"
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: python3.10
+      Handler: index.handler
+      Timeout: 60
+      MemorySize: 256
+      Environment:
+        Variables:
+          SM_MODEL_NAME: !Ref SageMakerModel
+          SM_INSTANCE_TYPE: !Ref InstanceType
+          SM_INSTANCE_COUNT: !Ref InstanceCount
+          INPUT_BUCKET: !Ref BucketOut
+          FEATURES_PREFIX: "features/"
+          PREDICTIONS_PREFIX: "predictions/"
+          CUT_OFF_FILES_JSON: '{"early":"features_jun01.csv","mid":"features_jul15.csv","late":"features_aug01.csv"}'
+      Code:
+        ZipFile: |
+          import os, json, time
+          from datetime import datetime, timezone
+          import boto3
+          sm = boto3.client("sagemaker")
+          def _s3_uri(bucket, key): return f"s3://{bucket}/{key.lstrip('/')}"
+          def handler(event, context):
+              model_name = os.environ["SM_MODEL_NAME"]
+              instance_type = os.getenv("SM_INSTANCE_TYPE","ml.m5.large")
+              instance_count = int(os.getenv("SM_INSTANCE_COUNT","1"))
+              bucket = os.environ["INPUT_BUCKET"]
+              features_prefix = os.environ.get("FEATURES_PREFIX","features/")
+              preds_prefix = os.environ.get("PREDICTIONS_PREFIX","predictions/")
+              cutoff_map = json.loads(os.environ.get("CUT_OFF_FILES_JSON","{}")) or {"early":"features_jun01.csv","mid":"features_jul15.csv","late":"features_aug01.csv"}
+              run_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+              results=[]
+              for stage, filename in cutoff_map.items():
+                  job_name = f"geoai-{stage}-{run_date}-{int(time.time())}"
+                  input_s3 = _s3_uri(bucket, f"{features_prefix}run_date={run_date}/{filename}")
+                  output_s3 = _s3_uri(bucket, f"{preds_prefix}run_date={run_date}/cutoff_stage={stage}/")
+                  sm.create_transform_job(
+                      TransformJobName=job_name,
+                      ModelName=model_name,
+                      TransformInput={"DataSource":{"S3DataSource":{"S3DataType":"S3Prefix","S3Uri":input_s3}},"ContentType":"text/csv","SplitType":"Line"},
+                      TransformOutput={"S3OutputPath":output_s3},
+                      TransformResources={"InstanceType":instance_type,"InstanceCount":instance_count},
+                  )
+                  results.append({"stage":stage,"job":job_name,"input":input_s3,"output":output_s3})
+              return {"submitted": results}
+
+  ScheduleRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub "${ProjectName}-daily-${AWS::StackName}"
+      ScheduleExpression: !Ref ScheduleExpression
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt TransformScheduler.Arn
+          Id: "TransformSchedulerTarget"
+
+  PermissionForEventsToInvokeLambda:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref TransformScheduler
+      Action: "lambda:InvokeFunction"
+      Principal: "events.amazonaws.com"
+      SourceArn: !GetAtt ScheduleRule.Arn
+
+Outputs:
+  BucketOut:
+    Value: !If [CreateBucket, !Ref ArtifactsBucket, !Ref BucketName]
+  SageMakerModelName:
+    Value: !Ref SageMakerModel
+  SchedulerLambdaName:
+    Value: !Ref TransformScheduler
+  EcrRepositoryName:
+    Value: !Ref GeoAIEcrRepo

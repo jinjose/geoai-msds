@@ -1,0 +1,42 @@
+{
+  "run_date": "2025-08-01",
+  "predict_year": "2025",
+  "state_fips": "19",
+  "county_fips": "ALL",
+  "backfill_start_year": 2014,
+  "feature_seasons": [
+    "aug01"
+  ],
+  "steps": {
+    "ingest": false,
+    "features": true,
+    "model_registry": false,
+    "inference": true,
+    "evaluation": true,
+    "summary": true
+  },
+  "ingest": {
+    "start": "",
+    "end": "",
+    "ndvi_granularity": "daily",
+    "era5_granularity": "daily",
+    "storm_granularity": "daily",
+    "storm_wind_cutoff_mph": 58,
+    "nws_user_agent": "geoai-demo (Mohan) contact: you@example.com",
+    "yield_years": []
+  },
+  "seasons": {
+    "models": [
+      {
+        "name": "Aug01_LightGBM-limited_withstorm",
+        "model_s3_uri": "s3://geoai-demo-data/models/Aug01_LightGBM-limited_withstorm"
+      }
+    ]
+  },
+  "eval_year_ranges": [
+    {
+      "start_year": 2019,
+      "end_year": 2024
+    }
+  ]
+}

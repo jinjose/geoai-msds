@@ -57,8 +57,17 @@ ERA5_HOURLY_VARS = {
 }
 
 
-def _rows_from_fc(fc: ee.FeatureCollection):
-    return [f["properties"] for f in fc.getInfo()["features"]]
+import ee
+
+def _rows_from_fc(fc: ee.FeatureCollection, page_size: int = 4500):
+    # page_size < 5000 to be safe
+    total = int(fc.size().getInfo())
+    rows = []
+    for offset in range(0, total, page_size):
+        chunk = ee.FeatureCollection(fc.toList(page_size, offset))
+        info = chunk.getInfo()
+        rows.extend([f["properties"] for f in info.get("features", [])])
+    return rows
 
 
 def fetch_era5(window_start: datetime, window_end: datetime, granularity: str, counties: ee.FeatureCollection) -> pd.DataFrame:
@@ -115,23 +124,37 @@ def fetch_era5(window_start: datetime, window_end: datetime, granularity: str, c
         ].copy()
 
     if granularity == "daily":
-        start = ee.Date(window_start.strftime("%Y-%m-%d"))
-        end = ee.Date(window_end.strftime("%Y-%m-%d"))
-        coll = ee.ImageCollection("ECMWF/ERA5_LAND/DAILY_AGGR").filterDate(start, end)
-        varmap = ERA5_DAILY_VARS
+        # NOTE:
+        # Avoid building a single huge FeatureCollection via coll.map(...).flatten(),
+        # which can exceed Earth Engine's 5000-element limit for longer windows.
+        # Instead, iterate image-by-image (daily) and collect rows safely.
 
-        def per_image(img):
+        varmap = ERA5_DAILY_VARS
+        coll = ee.ImageCollection("ECMWF/ERA5_LAND/DAILY_AGGR").filterDate(
+            ee.Date(window_start.strftime("%Y-%m-%d")),
+            ee.Date(window_end.strftime("%Y-%m-%d")),
+        )
+
+        images = coll.toList(coll.size())
+        n = images.size().getInfo()
+        rows: list[dict] = []
+
+        for i in range(n):
+            img = ee.Image(images.get(i))
             sel = img.select(list(varmap.values()))
+
             fc = sel.reduceRegions(
                 collection=counties,
                 reducer=ee.Reducer.mean(),
                 scale=10000,
                 tileScale=4,
             )
-            return fc.map(lambda f: f.set({
+
+            fc = fc.map(lambda f: f.set({
                 "date": img.date().format("YYYY-MM-dd"),
-                "year": window_start.year,
-                "month": window_start.month,
+                # derive correct year/month from image date (window may span months)
+                "year": ee.Date(img.date()).get("year"),
+                "month": ee.Date(img.date()).get("month"),
                 "county_fips": f.get("GEOID"),
                 "county_name": f.get("NAME"),
                 "temperature": f.get(varmap["temperature"]),
@@ -140,7 +163,24 @@ def fetch_era5(window_start: datetime, window_end: datetime, granularity: str, c
                 "soil_moisture": f.get(varmap["soil_moisture"]),
             }))
 
-        fc = coll.map(per_image).flatten()
+            rows.extend(_rows_from_fc(fc))
+
+        df = pd.DataFrame(rows)
+        if df.empty:
+            return df
+
+        df["date"] = pd.to_datetime(df["date"]).dt.strftime("%Y-%m-%d")
+        df["year"] = pd.to_numeric(df["year"], errors="coerce").astype("Int64")
+        df["month"] = pd.to_numeric(df["month"], errors="coerce").astype("Int64")
+
+        for c in ["temperature", "rainfall", "evapotranspiration", "soil_moisture"]:
+            df[c] = pd.to_numeric(df.get(c), errors="coerce")
+
+        print(f"[ERA5] Rows returned: {len(df)}")
+        return df[
+            ["county_fips","county_name","date","evapotranspiration","month",
+             "rainfall","soil_moisture","temperature","year"]
+        ].copy()
 
     elif granularity == "hourly":
         start = ee.Date(window_start.isoformat().replace("+00:00", "Z"))
@@ -214,8 +254,11 @@ def ingest_era5(state_fips: str, county_fips: str, start: datetime | None, end: 
 
         end_date = datetime.utcnow().date()
         start = datetime(start_date.year, start_date.month, start_date.day)
-        end = datetime(end_date.year, end_date.month, end_date.day)
+        end = datetime(end_date.year, end_date.month, end_date.day)        
         print(f"[ERA5] incremental window {start.date()} → {end.date()} (last={last})")
+        if start.date() > end.date():
+            print(f"[NDVI] nothing new to ingest (start={start.date()} > end={end.date()}); skipping")
+            return pd.DataFrame()
 
     print(f"[ERA5] START granularity={granularity} window={start.date()} → {end.date()}")
     county_filter = None if str(county_fips).upper() == "ALL" else county_fips

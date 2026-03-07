@@ -195,6 +195,9 @@ def ingest_ndvi(
         start = datetime(start_date.year, start_date.month, start_date.day)
         end = datetime(end_date.year, end_date.month, end_date.day)
         print(f"[NDVI] incremental window {start.date()} → {end.date()} (last={last})")
+        if start.date() > end.date():
+            print(f"[NDVI] nothing new to ingest (start={start.date()} > end={end.date()}); skipping")
+            return pd.DataFrame()
 
     county_filter = None if str(county_fips).upper() == "ALL" else county_fips
     counties = counties_fc(state_fips, county_filter)

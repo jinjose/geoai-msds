@@ -10,7 +10,7 @@
   },
   "artifacts": {
     "prefix": "lambda-artifacts",
-    "upload_lambda_artifacts": false,
+    "upload_lambda_artifacts": true,
     "upload_model_registry": false
   },
   "pipeline": {
@@ -26,7 +26,7 @@
       "build_push": false
     },
     "inference": {
-      "build_push": true
+      "build_push": false
     },
     "evaluation": {
       "build_push": false
@@ -39,6 +39,6 @@
     "evaluation_image_uri": "172023108179.dkr.ecr.ap-south-1.amazonaws.com/geoai-demo-evaluation:latest"
   },
   "deploy": {
-    "deploy_stack": false
+    "deploy_stack": true
   }
 }

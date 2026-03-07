@@ -1,0 +1,7 @@
+{
+  "target_col": "yield_bu_acre",
+  "id_cols": ["county", "year"],
+  "enable_metrics_if_target_present": true,
+  "log_metrics_to_cloudwatch": true,
+  "return_metrics_in_response": true
+}

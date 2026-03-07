@@ -1,0 +1,253 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: GeoAI Production Ingestion Platform
+
+Parameters:
+
+  ProjectName:
+    Type: String
+    Default: geoai
+
+  Environment:
+    Type: String
+    Default: prod
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+
+  Subnets:
+    Type: List<AWS::EC2::Subnet::Id>
+
+  SecurityGroups:
+    Type: List<AWS::EC2::SecurityGroup::Id>
+
+  ECRImage:
+    Type: String
+    Description: Full ECR image URI
+
+  ArtifactBucket:
+    Type: String
+    Default: geoai-artifact-bucket
+
+  GeeSecretArn:
+    Type: String
+
+  NassSecretArn:
+    Type: String
+
+Resources:
+
+# ==========================================
+# S3 Lifecycle Configuration
+# ==========================================
+  ArtifactBucketLifecycle:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref ArtifactBucket
+      LifecycleConfiguration:
+        Rules:
+          - Id: MoveToIA
+            Status: Enabled
+            Transitions:
+              - StorageClass: STANDARD_IA
+                TransitionInDays: 30
+          - Id: ArchiveToGlacier
+            Status: Enabled
+            Transitions:
+              - StorageClass: GLACIER
+                TransitionInDays: 90
+
+# ==========================================
+# CloudWatch Log Group
+# ==========================================
+  IngestLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/ecs/${ProjectName}-${Environment}-ingest"
+      RetentionInDays: 30
+
+# ==========================================
+# ECS Cluster
+# ==========================================
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Sub "${ProjectName}-${Environment}-cluster"
+
+# ==========================================
+# IAM Role - ECS Task
+# ==========================================
+  TaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-${Environment}-task-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: IngestionPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource:
+                  - !Ref GeeSecretArn
+                  - !Ref NassSecretArn
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:AbortMultipartUpload
+                Resource: !Sub "arn:aws:s3:::${ArtifactBucket}/*"
+              - Effect: Allow
+                Action: s3:ListBucket
+                Resource: !Sub "arn:aws:s3:::${ArtifactBucket}"
+
+# ==========================================
+# ECS Task Definition
+# ==========================================
+  IngestTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub "${ProjectName}-${Environment}-ingest"
+      Cpu: 1024
+      Memory: 4096
+      RequiresCompatibilities: [FARGATE]
+      NetworkMode: awsvpc
+      TaskRoleArn: !GetAtt TaskRole.Arn
+      ExecutionRoleArn: arn:aws:iam::${AWS::AccountId}:role/ecsTaskExecutionRole
+      ContainerDefinitions:
+        - Name: ingest
+          Image: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AWS::StackName}-ingestprocess:${ContainerImageTag}"
+          Essential: true
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref IngestLogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: ecs
+
+# ==========================================
+# IAM Role - Step Functions
+# ==========================================
+  StepFunctionsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-${Environment}-sfn-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: states.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: ECSRunPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ecs:RunTask
+                  - ecs:StopTask
+                  - ecs:DescribeTasks
+                Resource: "*"
+              - Effect: Allow
+                Action: iam:PassRole
+                Resource: "*"
+
+# ==========================================
+# Step Functions State Machine
+# ==========================================
+  IngestionStateMachine:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      StateMachineName: !Sub "${ProjectName}-${Environment}-ingestion"
+      RoleArn: !GetAtt StepFunctionsRole.Arn
+      DefinitionString:
+        !Sub |
+          {
+            "StartAt": "RunERA5",
+            "States": {
+              "RunERA5": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::ecs:runTask.sync",
+                "Parameters": {
+                  "Cluster": "${ECSCluster}",
+                  "TaskDefinition": "${IngestTaskDefinition}",
+                  "LaunchType": "FARGATE",
+                  "NetworkConfiguration": {
+                    "AwsvpcConfiguration": {
+                      "Subnets": ${Subnets},
+                      "SecurityGroups": ${SecurityGroups},
+                      "AssignPublicIp": "ENABLED"
+                    }
+                  },
+                  "CapacityProviderStrategy": [
+                    {
+                      "CapacityProvider": "FARGATE_SPOT",
+                      "Weight": 1
+                    }
+                  ]
+                },
+                "Retry": [
+                  {
+                    "ErrorEquals": ["States.ALL"],
+                    "IntervalSeconds": 60,
+                    "MaxAttempts": 3,
+                    "BackoffRate": 2.0
+                  }
+                ],
+                "Next": "RunNDVI"
+              },
+              "RunNDVI": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::ecs:runTask.sync",
+                "Parameters": {
+                  "Cluster": "${ECSCluster}",
+                  "TaskDefinition": "${IngestTaskDefinition}",
+                  "LaunchType": "FARGATE"
+                },
+                "End": true
+              }
+            }
+          }
+
+# ==========================================
+# SNS Alert Topic
+# ==========================================
+  AlertTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub "${ProjectName}-${Environment}-alerts"
+
+# ==========================================
+# CloudWatch Alarm
+# ==========================================
+  StepFunctionFailureAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${ProjectName}-${Environment}-sfn-failure"
+      Namespace: AWS/States
+      MetricName: ExecutionsFailed
+      Dimensions:
+        - Name: StateMachineArn
+          Value: !Ref IngestionStateMachine
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      AlarmActions:
+        - !Ref AlertTopic
+
+Outputs:
+
+  StateMachineArn:
+    Value: !Ref IngestionStateMachine
+
+  ECSClusterName:
+    Value: !Ref ECSCluster
