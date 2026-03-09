@@ -8,7 +8,12 @@ import os
 # PAGE SETUP
 # ==========================================
 st.set_page_config(page_title="2025 GEOAI Yield Intelligence Hub", layout="wide")
-
+st.sidebar.image("logo.png", use_container_width=True)
+st.sidebar.title("GEOAI Annual Yield Prediction for Crop Corn")
+st.sidebar.caption(
+"This system predicts county-level annual corn yield using satellite vegetation data, "
+"weather observations, storm  and historical yield records."
+)
 # ==========================================
 # PATHS
 # ==========================================
