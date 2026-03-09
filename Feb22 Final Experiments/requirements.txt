@@ -4,3 +4,4 @@ scikit-learn
 lightgbm
 mlflow
 matplotlib
+streamlit
