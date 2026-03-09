@@ -224,12 +224,26 @@ fig.update_layout(
 st.plotly_chart(fig, width="stretch")
 
 # ==========================================
-# ROW 3 : FEATURES
+# ROW 3 : FEATURES (UI RENAMED)
 # ==========================================
 st.subheader("Model Input Features")
 
 if not augset_c.empty:
-    st.dataframe(augset_c[FEATURES], width="stretch")
+
+    display_df = augset_c[FEATURES].copy()
+
+    display_df = display_df.rename(columns={
+        "county": "County",
+        "rolling_3yr_mean": "3-Year Yield Avg",
+        "ndvi_peak": "NDVI Peak",
+        "ndvi_slope": "NDVI Growth Rate",
+        "temp_anomaly": "Temperature Anomaly",
+        "net_moisture_stress": "Net Moisture Stress",
+        "heat_days_gt32": "Heat Days > 29°C",
+        "wind_severe_days_58_cutoff": "Severe Wind Days (≥58 mph)"
+    })
+
+    st.dataframe(display_df, width="stretch")
 
 # ==========================================
 # ROW 4 : DATA EXPLORER
