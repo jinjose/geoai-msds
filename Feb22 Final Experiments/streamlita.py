@@ -275,9 +275,14 @@ with tab2:
 # =====================================================
 with tab3:
 
-    st.subheader("Farm Production & Revenue Calculator")
+    st.subheader("Farm-Level Production and Revenue Estimate")
 
-    st.write(f"Reference Yield Forecast: **{pred:.2f} bu/ac**")
+    st.caption(
+    "This estimate converts the AI yield forecast into total production "
+    "and potential revenue based on farm size and corn price.")
+
+    st.write(f"GEOAI Model Predicted Yield: **{pred:.2f} bu/ac**")
+
 
     DEFAULT_CORN_PRICE = 4.10
 
