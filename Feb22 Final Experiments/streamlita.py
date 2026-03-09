@@ -270,3 +270,46 @@ elif dataset_choice == "History":
         yield_c.sort_values("year", ascending=False),
         width="stretch"
     )
+# ==========================================
+# FARM CALCULATOR
+# ==========================================
+st.subheader("Farm Production & Revenue Calculator")
+
+DEFAULT_CORN_PRICE = 4.10
+
+c1, c2 = st.columns(2)
+
+with c1:
+    acres = st.number_input(
+        "Farm Size (acres)",
+        min_value=1,
+        value=30,
+        step=1
+    )
+
+with c2:
+    corn_price = st.number_input(
+        "Corn Price ($ / bushel)",
+        min_value=0.0,
+        value=DEFAULT_CORN_PRICE,
+        step=0.10,
+        help="Default price based on USDA 2025 corn market estimate."
+    )
+
+# calculations
+total_bushels = acres * pred
+estimated_revenue = total_bushels * corn_price
+
+r1, r2 = st.columns(2)
+
+with r1:
+    st.metric(
+        "Estimated Production",
+        f"{total_bushels:,.0f} bushels"
+    )
+
+with r2:
+    st.metric(
+        "Estimated Revenue",
+        f"${estimated_revenue:,.0f}"
+    )
