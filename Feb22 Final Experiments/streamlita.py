@@ -172,8 +172,11 @@ with tab1:
         delta = None
 
     c1, c2 = st.columns(2)
-
+        
     with c1:
+        st.caption(
+    f"Last updated: {CUTOFF_DATES[current_cutoff]}"
+)
         st.metric(
             f"Projected Annual Yield in {COUNTY.upper()} for the year 2025",
             f"{pred:.2f} bu/ac"
@@ -185,10 +188,16 @@ with tab1:
 "For reference purposes only. The 2024 county yield is based on the USDA NASS survey and was officially published in 2025."
 )
             st.metric(
-    f"2024 USDA NASS Yield Survey — {COUNTY.upper()}",
+    f"2024 USDA NASS Reported Yield (Published 2025) — {COUNTY.upper()}",
     f"{last_actual:.2f} bu/ac",
     delta=f"{delta:+.2f} bu/ac"
 )
+#             st.metric(
+#     f"2024 USDA NASS Yield Survey — {COUNTY.upper()}",
+#     f"{last_actual:.2f} bu/ac",
+#     delta=f"{delta:+.2f} bu/ac"
+# )
+            
         
 
 # =====================================================
