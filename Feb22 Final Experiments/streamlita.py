@@ -16,15 +16,15 @@ BASE_PATH = "Feb22 Final Experiments/inference-dataset/intermediate"
 FEATURE_DIR = "Feb22 Final Experiments/inference-dataset/features_frozen"
 
 MODEL_CONFIG = {
-    "Early Stage (Jun 01)": {
+    "Planting–Vegetative Season Model (Jun 01)": {
         "file": "Feb22 Final Experiments/exported_models/jun01/LightGBM-limited_withstorm/model.pkl",
         "cutoff": "jun01"
     },
-    "Reproductive Stage (Jul 01)": {
+    "Reproductive Season Model (Jul 01)": {
         "file": "Feb22 Final Experiments/exported_models/jul01/LightGBM-limited_withstorm/model.pkl",
         "cutoff": "jul01"
     },
-    "Pre-Harvest Stage (Aug 01)": {
+    "Pre-Harvest Season Model (Aug 01)": {
         "file": "Feb22 Final Experiments/exported_models/aug01/LightGBM-limited_withstorm/model.pkl",
         "cutoff": "aug01"
     }
@@ -106,17 +106,26 @@ augset_c = augset_all[augset_all["county"].astype(str).str.lower() == COUNTY.low
 st.title("2025 GEOAI Yield Intelligence Hub")
 
 # ==========================================
-# ROW 1 : MODEL INFERENCE
+# TABS
 # ==========================================
-st.subheader(f"Yield Forecast — {selected_stage}")
+tab1, tab2, tab3 = st.tabs([
+    "Yield Forecast",
+    "Data Explorer",
+    "Farmer Calculator"
+])
 
-model = models_dict.get(selected_stage)
+# =====================================================
+# TAB 1 — YIELD FORECAST
+# =====================================================
+with tab1:
 
-if model is None:
-    st.error("Model not found. Check deployment paths.")
-    st.stop()
+    st.subheader(f"Yield Forecast — {selected_stage}")
 
-if not augset_c.empty:
+    model = models_dict.get(selected_stage)
+
+    if model is None:
+        st.error("Model not found. Check deployment paths.")
+        st.stop()
 
     FEATURES = [
         "county",
@@ -147,13 +156,10 @@ if not augset_c.empty:
         last_actual = None
         delta = None
 
-    c1, c2, c3 = st.columns(3)
+    c1, c2 = st.columns(2)
 
     with c1:
-        st.metric(
-            "Predicted 2025 Yield",
-            f"{pred:.2f} bu/ac"
-        )
+        st.metric("Predicted 2025 Yield", f"{pred:.2f} bu/ac")
 
     with c2:
         if delta is not None:
@@ -163,72 +169,63 @@ if not augset_c.empty:
                 delta=f"{delta:+.2f} bu/ac"
             )
 
-    with c3:
-        st.metric(
-            "Forecast Stage",
-            selected_stage
-        )
+# =====================================================
+# TAB 2 — DATA EXPLORER
+# =====================================================
+with tab2:
 
-else:
-    st.error("Incomplete feature data for this county.")
+    st.subheader(f"Crop Stressors — {COUNTY.upper()} (through {current_cutoff.upper()})")
 
-# ==========================================
-# ROW 2 : STRESSORS
-# ==========================================
-st.subheader(f"Crop Stressors — {COUNTY.upper()} (through {current_cutoff.upper()})")
+    fig = go.Figure()
 
-fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=ndvi_c["date"],
+        y=ndvi_c["NDVI"],
+        name="NDVI",
+        line=dict(color="forestgreen", width=4)
+    ))
 
-fig.add_trace(go.Scatter(
-    x=ndvi_c["date"],
-    y=ndvi_c["NDVI"],
-    name="NDVI",
-    line=dict(color="forestgreen", width=4)
-))
+    fig.add_trace(go.Scatter(
+        x=wx_c["date"],
+        y=wx_c["temperature"],
+        name="Temperature (°C)",
+        line=dict(color="orange", dash="dot"),
+        yaxis="y2"
+    ))
 
-fig.add_trace(go.Scatter(
-    x=wx_c["date"],
-    y=wx_c["temperature"],
-    name="Temperature (°C)",
-    line=dict(color="orange", dash="dot"),
-    yaxis="y2"
-))
+    if "wind_mph" in storm_c.columns:
 
-if "wind_mph" in storm_c.columns:
+        severe = storm_c[storm_c["wind_mph"] >= 58]
 
-    severe = storm_c[storm_c["wind_mph"] >= 58]
+        if not severe.empty:
 
-    if not severe.empty:
+            t_col = "datetime" if "datetime" in severe.columns else "time"
 
-        t_col = "datetime" if "datetime" in severe.columns else "time"
+            fig.add_trace(go.Scatter(
+                x=severe[t_col],
+                y=[ndvi_c["NDVI"].max()] * len(severe),
+                mode="markers",
+                name="Severe Wind ≥58mph",
+                marker=dict(color="red", size=12, symbol="x")
+            ))
 
-        fig.add_trace(go.Scatter(
-            x=severe[t_col],
-            y=[ndvi_c["NDVI"].max()] * len(severe),
-            mode="markers",
-            name="Severe Wind ≥58mph",
-            marker=dict(color="red", size=12, symbol="x")
-        ))
+    fig.update_layout(
+        hovermode="x unified",
+        yaxis=dict(title="NDVI Index"),
+        yaxis2=dict(
+            title="Temperature (°C)",
+            overlaying="y",
+            side="right"
+        ),
+        xaxis=dict(title=f"2025 Timeline (Cutoff: {current_cutoff.upper()})")
+    )
 
-fig.update_layout(
-    hovermode="x unified",
-    yaxis=dict(title="NDVI Index"),
-    yaxis2=dict(
-        title="Temperature (°C)",
-        overlaying="y",
-        side="right"
-    ),
-    xaxis=dict(title=f"2025 Timeline (Cutoff: {current_cutoff.upper()})")
-)
+    st.plotly_chart(fig, width="stretch")
 
-st.plotly_chart(fig, width="stretch")
-
-# ==========================================
-# ROW 3 : FEATURES (UI RENAMED)
-# ==========================================
-st.subheader("Model Input Features")
-
-if not augset_c.empty:
+    # ==========================================
+    # MODEL FEATURES
+    # ==========================================
+    st.subheader("Model Input Features")
 
     display_df = augset_c[FEATURES].copy()
 
@@ -245,71 +242,69 @@ if not augset_c.empty:
 
     st.dataframe(display_df, width="stretch")
 
-# ==========================================
-# ROW 4 : DATA EXPLORER
-# ==========================================
-st.subheader("Raw Data Explorer")
+    # ==========================================
+    # RAW DATA
+    # ==========================================
+    st.subheader("Raw Data Explorer")
 
-dataset_choice = st.radio(
-    "Inspect Dataset",
-    ["NDVI", "Weather", "Storm", "History"],
-    horizontal=True
-)
-
-if dataset_choice == "NDVI":
-    st.dataframe(ndvi_c, width="stretch")
-
-elif dataset_choice == "Weather":
-    st.dataframe(wx_c, width="stretch")
-
-elif dataset_choice == "Storm":
-    st.dataframe(storm_c, width="stretch")
-
-elif dataset_choice == "History":
-    st.dataframe(
-        yield_c.sort_values("year", ascending=False),
-        width="stretch"
-    )
-# ==========================================
-# FARM CALCULATOR
-# ==========================================
-st.subheader("Farm Production & Revenue Calculator")
-
-DEFAULT_CORN_PRICE = 4.10
-
-c1, c2 = st.columns(2)
-
-with c1:
-    acres = st.number_input(
-        "Farm Size (acres)",
-        min_value=1,
-        value=30,
-        step=1
+    dataset_choice = st.radio(
+        "Inspect Dataset",
+        ["NDVI", "Weather", "Storm", "History"],
+        horizontal=True
     )
 
-with c2:
-    corn_price = st.number_input(
-        "Corn Price ($ / bushel)",
-        min_value=0.0,
-        value=DEFAULT_CORN_PRICE,
-        step=0.10,
-        help="Default price based on USDA 2025 corn market estimate."
-    )
+    if dataset_choice == "NDVI":
+        st.dataframe(ndvi_c, width="stretch")
 
-# calculations
-total_bushels = acres * pred
-estimated_revenue = total_bushels * corn_price
+    elif dataset_choice == "Weather":
+        st.dataframe(wx_c, width="stretch")
 
-r1, r2 = st.columns(2)
+    elif dataset_choice == "Storm":
+        st.dataframe(storm_c, width="stretch")
 
-with r1:
-    st.metric(
-        "Estimated Production",
-        f"{total_bushels:,.0f} bushels"
-    )
+    elif dataset_choice == "History":
+        st.dataframe(
+            yield_c.sort_values("year", ascending=False),
+            width="stretch"
+        )
 
-with r2:
-    st.metric(
-        "Estimated Revenue",
-        f"${estimated_revenue:,.0f}"
-    )
+# =====================================================
+# TAB 3 — FARMER CALCULATOR
+# =====================================================
+with tab3:
+
+    st.subheader("Farm Production & Revenue Calculator")
+
+    st.write(f"Reference Yield Forecast: **{pred:.2f} bu/ac**")
+
+    DEFAULT_CORN_PRICE = 4.10
+
+    c1, c2 = st.columns(2)
+
+    with c1:
+        acres = st.number_input(
+            "Farm Size (acres)",
+            min_value=1,
+            value=30,
+            step=1
+        )
+
+    with c2:
+        corn_price = st.number_input(
+            "Corn Price ($ / bushel)",
+            min_value=0.0,
+            value=DEFAULT_CORN_PRICE,
+            step=0.10,
+            help="Default price based on USDA 2025 corn market estimate."
+        )
+
+    total_bushels = acres * pred
+    estimated_revenue = total_bushels * corn_price
+
+    r1, r2 = st.columns(2)
+
+    with r1:
+        st.metric("Estimated Production", f"{total_bushels:,.0f} bushels")
+
+    with r2:
+        st.metric("Estimated Revenue", f"${estimated_revenue:,.0f}")
