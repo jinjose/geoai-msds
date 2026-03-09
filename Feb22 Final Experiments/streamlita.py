@@ -5,12 +5,12 @@ import pickle
 import os
 
 # ==========================================
-# 1. PAGE SETUP
+# PAGE SETUP
 # ==========================================
 st.set_page_config(page_title="2025 GEOAI Yield Intelligence Hub", layout="wide")
 
 # ==========================================
-# 2. PATH DEFINITIONS
+# PATHS
 # ==========================================
 BASE_PATH = "Feb22 Final Experiments/inference-dataset/intermediate"
 FEATURE_DIR = "Feb22 Final Experiments/inference-dataset/features_frozen"
@@ -31,23 +31,25 @@ MODEL_CONFIG = {
 }
 
 # ==========================================
-# 3. CACHED DATA LOADERS
+# LOAD MODELS
 # ==========================================
 @st.cache_resource
 def load_models():
-    loaded = {}
+    models = {}
     for name, cfg in MODEL_CONFIG.items():
         path = cfg["file"]
-
         if os.path.exists(path):
             with open(path, "rb") as f:
-                loaded[name] = pickle.load(f)
+                models[name] = pickle.load(f)
+    return models
 
-    return loaded
 
-
+# ==========================================
+# LOAD DATA
+# ==========================================
 @st.cache_data
 def load_temporal_data(cutoff):
+
     ndvi = pd.read_csv(os.path.join(BASE_PATH, f"ndvi_until_{cutoff}.csv"))
     wx = pd.read_csv(os.path.join(BASE_PATH, f"weather_until_{cutoff}.csv"))
     storm = pd.read_csv(os.path.join(BASE_PATH, f"storm_until_{cutoff}.csv"))
@@ -66,14 +68,14 @@ def load_temporal_data(cutoff):
 models_dict = load_models()
 
 # ==========================================
-# 4. SIDEBAR
+# SIDEBAR
 # ==========================================
 st.sidebar.title("2025 GEO AI Annual Yield Prediction")
 st.sidebar.info("Current Forecast Year: 2025")
 
 selected_stage = st.sidebar.radio(
-    "Select Forecasting Point:",
-    options=list(MODEL_CONFIG.keys())
+    "Select Forecasting Point",
+    list(MODEL_CONFIG.keys())
 )
 
 current_cutoff = MODEL_CONFIG[selected_stage]["cutoff"]
@@ -81,7 +83,6 @@ current_cutoff = MODEL_CONFIG[selected_stage]["cutoff"]
 ndvi_all, wx_all, storm_all, h_yield_all, augset_all = load_temporal_data(current_cutoff)
 
 all_counties = sorted(ndvi_all["county"].unique())
-
 default_county = "benton" if "benton" in all_counties else all_counties[0]
 
 COUNTY = st.sidebar.selectbox(
@@ -90,6 +91,7 @@ COUNTY = st.sidebar.selectbox(
     index=all_counties.index(default_county)
 )
 
+# Filter county data
 ndvi_c = ndvi_all[ndvi_all["county"] == COUNTY]
 wx_c = wx_all[wx_all["county"] == COUNTY]
 storm_c = storm_all[storm_all["county"] == COUNTY]
@@ -97,7 +99,7 @@ yield_c = h_yield_all[h_yield_all["county"] == COUNTY]
 augset_c = augset_all[augset_all["county"].astype(str).str.lower() == COUNTY.lower()]
 
 # ==========================================
-# 5. DASHBOARD TABS
+# TABS
 # ==========================================
 tab1, tab2, tab3, tab4 = st.tabs([
     "2025 Visual Analysis",
@@ -125,7 +127,7 @@ with tab1:
     fig.add_trace(go.Scatter(
         x=wx_c["date"],
         y=wx_c["temperature"],
-        name="Temp (°C)",
+        name="Temperature (°C)",
         line=dict(color="orange", dash="dot"),
         yaxis="y2"
     ))
@@ -150,7 +152,7 @@ with tab1:
         hovermode="x unified",
         yaxis=dict(title="NDVI Index"),
         yaxis2=dict(
-            title="Temp (°C)",
+            title="Temperature (°C)",
             overlaying="y",
             side="right"
         ),
@@ -169,7 +171,7 @@ with tab2:
     model = models_dict.get(selected_stage)
 
     if model is None:
-        st.error("Model file not found. Please check deployment paths.")
+        st.error("Model not found. Please check model deployment.")
         st.stop()
 
     if not augset_c.empty:
@@ -197,17 +199,29 @@ with tab2:
         else:
             pred = model.predict(X)[0]
 
+        if not yield_c.empty:
+            last_actual = yield_c.sort_values("year").iloc[-1]["yield_bu_acre"]
+            delta = pred - last_actual
+        else:
+            last_actual = None
+            delta = None
+
         c1, c2 = st.columns(2)
 
         with c1:
-            st.metric("Predicted 2025 Yield", f"{pred:.2f} bu/ac")
+            st.metric(
+                label="Predicted 2025 Yield",
+                value=f"{pred:.2f} bu/ac"
+            )
 
         with c2:
 
-            if not yield_c.empty:
-                last_actual = yield_c.sort_values("year").iloc[-1]["yield_bu_acre"]
-                delta = pred - last_actual
-                st.metric("vs 2024 Actual", f"{delta:.2f} bu/ac")
+            if delta is not None:
+                st.metric(
+                    label="vs 2024 Actual",
+                    value=f"{last_actual:.2f} bu/ac",
+                    delta=f"{delta:+.2f} bu/ac"
+                )
 
     else:
         st.error("Incomplete feature data for this county.")
@@ -220,9 +234,9 @@ with tab3:
     st.subheader(f"2025 Engineered Features (Cutoff: {current_cutoff})")
 
     if not augset_c.empty:
-        st.dataframe(augset_c[FEATURES], width="stretch")
+        st.dataframe(augset_c, width="stretch")
     else:
-        st.write("No features available.")
+        st.write("No feature data available.")
 
 # ==========================================
 # TAB 4 DATA EXPLORER
@@ -232,7 +246,7 @@ with tab4:
     st.header(f"2025 Raw Data Explorer (Cutoff: {current_cutoff})")
 
     choice = st.radio(
-        "Inspect Dataset:",
+        "Inspect Dataset",
         ["NDVI", "Weather", "Storm", "History"],
         horizontal=True
     )
