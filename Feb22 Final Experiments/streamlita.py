@@ -174,8 +174,10 @@ with tab1:
 # =====================================================
 with tab2:
 
-    st.subheader(f"Crop Stressors — {COUNTY.upper()} (through {current_cutoff.upper()})")
-
+    # st.subheader(f"Crop Stressors — {COUNTY.upper()} (through {current_cutoff.upper()})")
+    st.subheader(
+    f"Observed Crop and Weather Conditions — {COUNTY.upper()} (through {current_cutoff.upper()})"
+)
     fig = go.Figure()
 
     fig.add_trace(go.Scatter(
