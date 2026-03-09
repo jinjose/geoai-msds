@@ -15,6 +15,9 @@ st.set_page_config(page_title="2025 GEOAI Yield Intelligence Hub", layout="wide"
 BASE_PATH = "Feb22 Final Experiments/inference-dataset/intermediate"
 FEATURE_DIR = "Feb22 Final Experiments/inference-dataset/features_frozen"
 
+# ==========================================
+# MODEL CONFIG
+# ==========================================
 MODEL_CONFIG = {
     "Planting–Vegetative Season Model (Jun 01)": {
         "file": "Feb22 Final Experiments/exported_models/jun01/LightGBM-limited_withstorm/model.pkl",
@@ -28,6 +31,15 @@ MODEL_CONFIG = {
         "file": "Feb22 Final Experiments/exported_models/aug01/LightGBM-limited_withstorm/model.pkl",
         "cutoff": "aug01"
     }
+}
+
+# ==========================================
+# CUTOFF DATE LABELS
+# ==========================================
+CUTOFF_DATES = {
+    "jun01": "June 01, 2025",
+    "jul01": "July 01, 2025",
+    "aug01": "August 01, 2025"
 }
 
 # ==========================================
@@ -172,11 +184,9 @@ with tab1:
         delta = None
 
     c1, c2 = st.columns(2)
-        
+
     with c1:
-        st.caption(
-    f"Last updated: {CUTOFF_DATES[current_cutoff]}"
-)
+        st.caption(f"Last updated: {CUTOFF_DATES[current_cutoff]}")
         st.metric(
             f"Projected Annual Yield in {COUNTY.upper()} for the year 2025",
             f"{pred:.2f} bu/ac"
@@ -188,17 +198,10 @@ with tab1:
 "For reference purposes only. The 2024 county yield is based on the USDA NASS survey and was officially published in 2025."
 )
             st.metric(
-    f"2024 USDA NASS Reported Yield (Published 2025) — {COUNTY.upper()}",
-    f"{last_actual:.2f} bu/ac",
-    delta=f"{delta:+.2f} bu/ac"
-)
-#             st.metric(
-#     f"2024 USDA NASS Yield Survey — {COUNTY.upper()}",
-#     f"{last_actual:.2f} bu/ac",
-#     delta=f"{delta:+.2f} bu/ac"
-# )
-            
-        
+                f"2024 USDA NASS Reported Yield (Published 2025) — {COUNTY.upper()}",
+                f"{last_actual:.2f} bu/ac",
+                delta=f"{delta:+.2f} bu/ac"
+            )
 
 # =====================================================
 # TAB 2 — DATA EXPLORER
@@ -251,71 +254,11 @@ with tab2:
     fig.update_layout(
         hovermode="x unified",
         yaxis=dict(title="NDVI Index"),
-        yaxis2=dict(
-            title="Temperature (°C)",
-            overlaying="y",
-            side="right"
-        ),
+        yaxis2=dict(title="Temperature (°C)", overlaying="y", side="right"),
         xaxis=dict(title=f"2025 Timeline (Cutoff: {current_cutoff.upper()})")
     )
 
     st.plotly_chart(fig, width="stretch")
-
-    # ==========================================
-    # MODEL FEATURES
-    # ==========================================
-    st.subheader("Model Input Features")
-
-    st.caption(
-    "These engineered features summarize environmental conditions that influence crop yield. "
-    "They are derived from the raw observations shown above."
-    )
-
-    display_df = augset_c[FEATURES].copy()
-
-    display_df = display_df.rename(columns={
-        "county": "County",
-        "rolling_3yr_mean": "3-Year Yield Avg",
-        "ndvi_peak": "NDVI Peak",
-        "ndvi_slope": "NDVI Growth Rate",
-        "temp_anomaly": "Temperature Anomaly",
-        "net_moisture_stress": "Net Moisture Stress",
-        "heat_days_gt32": "Heat Days > 29°C",
-        "wind_severe_days_58_cutoff": "Severe Wind Days (≥58 mph)"
-    })
-
-    st.dataframe(display_df, width="stretch")
-
-    # ==========================================
-    # RAW DATA
-    # ==========================================
-    st.subheader("Raw Data Explorer")
-
-    st.caption(
-    "Inspect the underlying datasets used to build the model, including satellite NDVI "
-    "data, weather observations, storm reports, and historical yield records."
-    )
-
-    dataset_choice = st.radio(
-        "Inspect Dataset",
-        ["NDVI", "Weather", "Storm", "History"],
-        horizontal=True
-    )
-
-    if dataset_choice == "NDVI":
-        st.dataframe(ndvi_c, width="stretch")
-
-    elif dataset_choice == "Weather":
-        st.dataframe(wx_c, width="stretch")
-
-    elif dataset_choice == "Storm":
-        st.dataframe(storm_c, width="stretch")
-
-    elif dataset_choice == "History":
-        st.dataframe(
-            yield_c.sort_values("year", ascending=False),
-            width="stretch"
-        )
 
 # =====================================================
 # TAB 3 — FARMER CALCULATOR
@@ -336,20 +279,14 @@ with tab3:
     c1, c2 = st.columns(2)
 
     with c1:
-        acres = st.number_input(
-            "Farm Size (acres)",
-            min_value=1,
-            value=30,
-            step=1
-        )
+        acres = st.number_input("Farm Size (acres)", min_value=1, value=30, step=1)
 
     with c2:
         corn_price = st.number_input(
             "Corn Price ($ / bushel)",
             min_value=0.0,
             value=DEFAULT_CORN_PRICE,
-            step=0.10,
-            help="Default price based on USDA 2025 corn market estimate."
+            step=0.10
         )
 
     total_bushels = acres * pred
