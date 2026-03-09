@@ -13,15 +13,15 @@ st.set_page_config(page_title="2025 GEOAI Yield Intelligence Hub", layout="wide"
 # ==========================================
 # 2. DEFINITIONS & PATHS
 # ==========================================
-BASE_PATH = "/Users/jincyjose/PycharmProjects/453/old_capstone/Feb22 Final Experiments/inference-dataset/intermediate"
-FEATURE_DIR = "/Users/jincyjose/PycharmProjects/453/old_capstone/Feb22 Final Experiments/inference-dataset/features_frozen"
-MODEL_DIR = "/Users/jincyjose/PycharmProjects/453/old_capstone/Feb22 Final Experiments/inference-demo"
+BASE_PATH = "Feb22 Final Experiments/inference-dataset/intermediate"
+FEATURE_DIR = "Feb22 Final Experiments/inference-dataset/features_frozen"
+MODEL_DIR = "Feb22 Final Experiments/inference-demo"
 
 # Map Models to their specific 2025 data cutoffs
 MODEL_CONFIG = {
-    "Early Stage (Jun 01)": {"file": "Early_season_model.pkl", "cutoff": "jun01"},
-    "Reproductive Stage (Jul 01)": {"file": "Mid_season_model.pkl", "cutoff": "jul01"},
-    "Pre-Harvest Stage (Aug 01)": {"file": "Late_season_model.pkl", "cutoff": "aug01"}
+    "Early Stage (Jun 01)": {"file": "EFeb22 Final Experiments/exported_models/jun01/LightGBM-limited_withstorm/model.pkl", "cutoff": "jun01"},
+    "Reproductive Stage (Jul 01)": {"file": "Feb22 Final Experiments/exported_models/jul01/LightGBM-limited_withstorm/model.pkl", "cutoff": "jul01"},
+    "Pre-Harvest Stage (Aug 01)": {"file": "Feb22 Final Experiments/exported_models/aug01/LightGBM-limited_withstorm/model.pkl", "cutoff": "aug01"}
 }
 
 
