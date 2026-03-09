@@ -7,8 +7,6 @@ import os
 # ==========================================
 # PAGE SETUP
 # ==========================================
-st.set_page_config(page_title="2025 GEOAI Yield Intelligence Hub", layout="wide")
-
 # ==========================================
 # PATHS
 # ==========================================
@@ -16,7 +14,7 @@ BASE_PATH = "Feb22 Final Experiments/inference-dataset/intermediate"
 FEATURE_DIR = "Feb22 Final Experiments/inference-dataset/features_frozen"
 
 MODEL_CONFIG = {
-    "Early Stage (Jun 01)": {
+    "Planting-Vegetative Stage (Jun 01)": {
         "file": "Feb22 Final Experiments/exported_models/jun01/LightGBM-limited_withstorm/model.pkl",
         "cutoff": "jun01"
     },
