@@ -71,7 +71,11 @@ models_dict = load_models()
 # SIDEBAR
 # ==========================================
 st.sidebar.title("2025 GEO AI Annual Yield Prediction")
-st.sidebar.info("Forecast Year: 2025")
+
+st.sidebar.caption(
+"This system predicts county-level corn yield using satellite vegetation data, "
+"weather observations, and historical yield records."
+)
 
 selected_stage = st.sidebar.radio(
     "Select Forecast Stage",
@@ -105,6 +109,12 @@ augset_c = augset_all[augset_all["county"].astype(str).str.lower() == COUNTY.low
 # ==========================================
 st.title("2025 GEOAI Yield Intelligence Hub")
 
+st.caption(
+"This dashboard demonstrates an AI-driven crop yield forecasting system that "
+"uses satellite vegetation signals, weather conditions, and historical yield data "
+"to estimate corn yield during different stages of the growing season."
+)
+
 # ==========================================
 # TABS
 # ==========================================
@@ -120,6 +130,11 @@ tab1, tab2, tab3 = st.tabs([
 with tab1:
 
     st.subheader(f"Yield Forecast — {selected_stage}")
+
+    st.caption(
+    "The model predicts expected corn yield based on environmental conditions "
+    "observed up to the selected seasonal cutoff date."
+    )
 
     model = models_dict.get(selected_stage)
 
@@ -159,12 +174,15 @@ with tab1:
     c1, c2 = st.columns(2)
 
     with c1:
-        st.metric("Predicted 2025 Yield", f"{pred:.2f} bu/ac")
+        st.metric(
+            f"2025 GEOAI Yield Forecast — {COUNTY.upper()}",
+            f"{pred:.2f} bu/ac"
+        )
 
     with c2:
         if delta is not None:
             st.metric(
-                "vs 2024 Actual",
+                "Forecast Difference from 2024 USDA NASS Yield(Published 2025)",
                 f"{last_actual:.2f} bu/ac",
                 delta=f"{delta:+.2f} bu/ac"
             )
@@ -174,16 +192,22 @@ with tab1:
 # =====================================================
 with tab2:
 
-    # st.subheader(f"Crop Stressors — {COUNTY.upper()} (through {current_cutoff.upper()})")
     st.subheader(
     f"Observed Crop and Weather Conditions — {COUNTY.upper()} (through {current_cutoff.upper()})"
-)
+    )
+
+    st.caption(
+    "This chart shows observed environmental conditions used to derive model features. "
+    "NDVI represents vegetation health from satellite imagery, temperature reflects weather "
+    "conditions, and storm markers indicate severe wind events."
+    )
+
     fig = go.Figure()
 
     fig.add_trace(go.Scatter(
         x=ndvi_c["date"],
         y=ndvi_c["NDVI"],
-        name="NDVI",
+        name="NDVI (Vegetation Health)",
         line=dict(color="forestgreen", width=4)
     ))
 
@@ -229,6 +253,11 @@ with tab2:
     # ==========================================
     st.subheader("Model Input Features")
 
+    st.caption(
+    "These engineered features summarize environmental conditions that influence crop yield. "
+    "They are derived from the raw observations shown above."
+    )
+
     display_df = augset_c[FEATURES].copy()
 
     display_df = display_df.rename(columns={
@@ -248,6 +277,11 @@ with tab2:
     # RAW DATA
     # ==========================================
     st.subheader("Raw Data Explorer")
+
+    st.caption(
+    "Inspect the underlying datasets used to build the model, including satellite NDVI "
+    "data, weather observations, storm reports, and historical yield records."
+    )
 
     dataset_choice = st.radio(
         "Inspect Dataset",
@@ -278,11 +312,11 @@ with tab3:
     st.subheader("Farm-Level Production and Revenue Estimate")
 
     st.caption(
-    "This estimate converts the AI yield forecast into total production "
-    "and potential revenue based on farm size and corn price.")
+    "This tool converts the AI yield forecast into estimated production and potential "
+    "farm revenue based on farm size and corn market price."
+    )
 
     st.write(f"GEOAI Model Predicted Yield: **{pred:.2f} bu/ac**")
-
 
     DEFAULT_CORN_PRICE = 4.10
 
