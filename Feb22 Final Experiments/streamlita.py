@@ -81,7 +81,10 @@ models_dict = load_models()
 # ==========================================
 # SIDEBAR
 # ==========================================
-st.sidebar.image("logo.png", use_container_width=True)
+st.sidebar.image(
+    "https://raw.githubusercontent.com/jinjose/geoai-msds/main/Feb22%20Final%20Experiments/logo.png",
+    width="stretch"
+)
 st.sidebar.title("GEOAI Annual Yield Prediction for Crop Corn")
 st.sidebar.caption(
 "This system predicts county-level annual corn yield using satellite vegetation data, "
