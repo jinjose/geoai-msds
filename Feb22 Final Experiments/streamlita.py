@@ -130,9 +130,9 @@ st.caption(
 # TABS
 # ==========================================
 tab1, tab2, tab3 = st.tabs([
-    "Yield Forecast",
+    "Annual County-wise Yield Forecast",
     "Data Explorer",
-    "Farmer Calculator"
+    "Farmer Production/Revenue Calculator"
 ])
 
 # =====================================================
