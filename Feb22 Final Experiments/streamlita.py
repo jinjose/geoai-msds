@@ -185,8 +185,9 @@ with tab1:
         st.caption(f"Last updated: {CUTOFF_DATES[current_cutoff]}")
         st.metric(
             f"Projected Annual Yield in {COUNTY.upper()} for the year 2025",
-            f"{pred:.2f} bu/ac"
+            # f"{pred:.2f} bu/ac"
         )
+        st.markdown(f"<span style='font-size:60px; color:#8BC34A; font-weight:700'>{pred:.2f} bu/ac</span>", unsafe_allow_html=True)
 
     with c2:
         st.caption(
@@ -195,7 +196,7 @@ with tab1:
         )
 
         st.metric(
-            f"2024 USDA NASS Reported Yield (Published 2025) — {COUNTY.upper()}",
+            f"Change from the 2024 USDA NASS Reported Yield (Published 2025) — {COUNTY.upper()}",
             f"{last_actual:.2f} bu/ac",
             delta=f"{delta:+.2f} bu/ac"
         )
