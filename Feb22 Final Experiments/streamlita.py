@@ -73,7 +73,7 @@ models_dict = load_models()
 st.sidebar.title("2025 GEO AI Annual Yield Prediction")
 
 st.sidebar.caption(
-"This system predicts county-level corn yield using satellite vegetation data, "
+"This system predicts county-level annual corn yield using satellite vegetation data, "
 "weather observations, and historical yield records."
 )
 
@@ -112,7 +112,7 @@ st.title("2025 GEOAI Yield Intelligence Hub")
 st.caption(
 "This dashboard demonstrates an AI-driven crop yield forecasting system that "
 "uses satellite vegetation signals, weather conditions, and historical yield data "
-"to estimate corn yield during different stages of the growing season."
+"to estimate annual corn yield during different stages of the growing season."
 )
 
 # ==========================================
