@@ -182,7 +182,7 @@ with tab1:
     with c2:
         if delta is not None:
             st.metric(
-                "Forecast Difference from 2024 USDA NASS Yield(Published 2025)",
+                "Change from 2024 USDA NASS Yield Survey (Published 2025)",
                 f"{last_actual:.2f} bu/ac",
                 delta=f"{delta:+.2f} bu/ac"
             )
