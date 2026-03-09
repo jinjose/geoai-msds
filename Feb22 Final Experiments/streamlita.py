@@ -183,10 +183,11 @@ with tab1:
 
     with c1:
         st.caption(f"Last updated: {CUTOFF_DATES[current_cutoff]}")
-        st.metric(
-            f"Projected Annual Yield in {COUNTY.upper()} for the year 2025",
-        )
-        st.markdown(f"<span style='font-size:60px; color:#8BC34A; font-weight:700'>{pred:.2f} bu/ac</span>", unsafe_allow_html=True)
+        st.markdown(f"Projected Annual Yield in {COUNTY.upper()} for the year 2025")
+st.markdown(
+    f"<span style='font-size:60px; color:#8BC34A; font-weight:700'>{pred:.2f} bu/ac</span>",
+    unsafe_allow_html=True
+)
 
     with c2:
         st.caption(
