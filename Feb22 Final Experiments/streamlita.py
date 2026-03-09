@@ -129,10 +129,10 @@ tab1, tab2, tab3 = st.tabs([
 # =====================================================
 with tab1:
 
-    st.subheader(f"Yield Forecast — {selected_stage}")
+    st.subheader(f"Annual Yield Forecast - {selected_stage}")
 
     st.caption(
-    "The model predicts expected corn yield based on environmental conditions "
+    "The model predicts expected annual corn yield based on environmental conditions "
     "observed up to the selected seasonal cutoff date."
     )
 
@@ -175,14 +175,14 @@ with tab1:
 
     with c1:
         st.metric(
-            f"2025 GEOAI Yield Forecast — {COUNTY.upper()}",
+            f"Projected Annual Yield in {COUNTY.upper() for the year 2025}",
             f"{pred:.2f} bu/ac"
         )
 
     with c2:
         if delta is not None:
             st.metric(
-                "Change from 2024 USDA NASS Yield Survey (Published 2025)",
+                "Change from 2024 USDA NASS Yield Survey (For reference purposes only)",
                 f"{last_actual:.2f} bu/ac",
                 delta=f"{delta:+.2f} bu/ac"
             )
