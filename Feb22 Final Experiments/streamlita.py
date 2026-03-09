@@ -129,10 +129,12 @@ st.caption(
 # ==========================================
 # TABS
 # ==========================================
-tab1, tab2, tab3 = st.tabs([
+tab1, tab2, tab3, tab4 = st.tabs([
     "Annual County-wise Yield Forecast",
     "Data Explorer",
-    "Farmer Production/Revenue Calculator"
+    "Farmer Production/Revenue Calculator",
+    "Iowa State Yield Map "
+
 ])
 
 # =====================================================
@@ -338,3 +340,114 @@ with tab3:
 
     with r2:
         st.metric("Estimated Revenue", f"${estimated_revenue:,.0f}")
+
+
+# =====================================================
+# TAB 4 — IOWA YIELD MAP
+# =====================================================
+with tab4:
+
+    st.subheader("Predicted 2025 Corn Yield Across Iowa Counties")
+
+    st.caption(
+        "This map visualizes the projected 2025 county-level corn yield across Iowa "
+        "based on environmental conditions observed up to the selected seasonal cutoff."
+    )
+
+    import plotly.express as px
+    import json
+
+    # -------------------------------------------------
+    # Load US Counties GeoJSON
+    # -------------------------------------------------
+    geojson_url = "https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json"
+    counties_geojson = pd.read_json(geojson_url)
+
+    # -------------------------------------------------
+    # Prepare features for prediction
+    # -------------------------------------------------
+    FEATURES = [
+        "county",
+        "rolling_3yr_mean",
+        "ndvi_peak",
+        "ndvi_slope",
+        "temp_anomaly",
+        "net_moisture_stress",
+        "heat_days_gt32",
+        "wind_severe_days_58_cutoff"
+    ]
+
+    X_map = augset_all[FEATURES].copy()
+    X_map["county"] = X_map["county"].astype("category")
+
+    num_cols = X_map.select_dtypes(include=["number"]).columns
+    X_map[num_cols] = X_map[num_cols].fillna(0)
+
+    model = models_dict.get(selected_stage)
+
+    if hasattr(model, "booster_"):
+        augset_all["predicted_yield"] = model.booster_.predict(X_map)
+    else:
+        augset_all["predicted_yield"] = model.predict(X_map)
+
+    # -------------------------------------------------
+    # Iowa County FIPS mapping
+    # -------------------------------------------------
+    IOWA_FIPS = {
+        "adair": "19001", "adams": "19003", "allamakee": "19005", "appanoose": "19007",
+        "audubon": "19009", "benton": "19011", "black hawk": "19013", "boone": "19015",
+        "bremer": "19017", "buchanan": "19019", "buena vista": "19021", "butler": "19023",
+        "calhoun": "19025", "carroll": "19027", "cass": "19029", "cedar": "19031",
+        "cerro gordo": "19033", "cherokee": "19035", "chickasaw": "19037", "clarke": "19039",
+        "clay": "19041", "clayton": "19043", "clinton": "19045", "crawford": "19047",
+        "dallas": "19049", "davis": "19051", "decatur": "19053", "delaware": "19055",
+        "des moines": "19057", "dickinson": "19059", "dubuque": "19061", "emmet": "19063",
+        "fayette": "19065", "floyd": "19067", "franklin": "19069", "fremont": "19071",
+        "greene": "19073", "grundy": "19075", "guthrie": "19077", "hamilton": "19079",
+        "hancock": "19081", "hardin": "19083", "harrison": "19085", "henry": "19087",
+        "howard": "19089", "humboldt": "19091", "ida": "19093", "iowa": "19095",
+        "jackson": "19097", "jasper": "19099", "jefferson": "19101", "johnson": "19103",
+        "jones": "19105", "keokuk": "19107", "kossuth": "19109", "lee": "19111",
+        "linn": "19113", "louisa": "19115", "lucas": "19117", "lyon": "19119",
+        "madison": "19121", "mahaska": "19123", "marion": "19125", "marshall": "19127",
+        "mills": "19129", "mitchell": "19131", "monona": "19133", "monroe": "19135",
+        "montgomery": "19137", "muscatine": "19139", "obrien": "19141", "osceola": "19143",
+        "page": "19145", "palo alto": "19147", "plymouth": "19149", "pocahontas": "19151",
+        "polk": "19153", "pottawattamie": "19155", "poweshiek": "19157", "ringgold": "19159",
+        "sac": "19161", "scott": "19163", "shelby": "19165", "sioux": "19167",
+        "story": "19169", "tama": "19171", "taylor": "19173", "union": "19175",
+        "van buren": "19177", "wapello": "19179", "warren": "19181", "washington": "19183",
+        "wayne": "19185", "webster": "19187", "winnebago": "19189", "winneshiek": "19191",
+        "woodbury": "19193", "worth": "19195", "wright": "19197"
+    }
+
+    augset_all["fips"] = augset_all["county"].str.lower().map(IOWA_FIPS)
+
+    map_df = augset_all.dropna(subset=["fips"])
+
+    # -------------------------------------------------
+    # Build Map
+    # -------------------------------------------------
+    fig = px.choropleth(
+        map_df,
+        geojson="https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json",
+        locations="fips",
+        color="predicted_yield",
+        color_continuous_scale="YlGn",
+        scope="usa",
+        hover_name="county",
+        hover_data={"predicted_yield":":.2f"},
+    )
+
+    fig.update_geos(
+        fitbounds="locations",
+        visible=False
+    )
+
+    fig.update_layout(
+        coloraxis_colorbar=dict(
+            title="Predicted Yield (bu/ac)"
+        )
+    )
+
+    st.plotly_chart(fig, width="stretch")
