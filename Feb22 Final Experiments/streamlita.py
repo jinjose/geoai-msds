@@ -175,17 +175,21 @@ with tab1:
 
     with c1:
         st.metric(
-            f"Projected Annual Yield in {COUNTY.upper() for the year 2025}",
+            f"Projected Annual Yield in {COUNTY.upper()} for the year 2025",
             f"{pred:.2f} bu/ac"
         )
 
     with c2:
         if delta is not None:
+            st.caption(
+"For reference purposes only. The 2024 county yield is based on the USDA NASS survey and was officially published in 2025."
+)
             st.metric(
-                "Change from 2024 USDA NASS Yield Survey (For reference purposes only)",
-                f"{last_actual:.2f} bu/ac",
-                delta=f"{delta:+.2f} bu/ac"
-            )
+    f"2024 USDA NASS Yield Survey — {COUNTY.upper()}",
+    f"{last_actual:.2f} bu/ac",
+    delta=f"{delta:+.2f} bu/ac"
+)
+        
 
 # =====================================================
 # TAB 2 — DATA EXPLORER
