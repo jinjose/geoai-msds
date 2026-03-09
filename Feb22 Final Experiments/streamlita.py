@@ -55,7 +55,6 @@ def load_models():
                 models[name] = pickle.load(f)
     return models
 
-
 # ==========================================
 # LOAD DATA
 # ==========================================
@@ -144,15 +143,11 @@ with tab1:
     st.subheader(f"Annual Yield Forecast - {selected_stage}")
 
     st.caption(
-    "The model predicts expected annual corn yield based on environmental conditions "
-    "observed up to the selected seasonal cutoff date."
+        "The model predicts expected annual corn yield based on environmental conditions "
+        "observed up to the selected seasonal cutoff date."
     )
 
     model = models_dict.get(selected_stage)
-
-    if model is None:
-        st.error("Model not found. Check deployment paths.")
-        st.stop()
 
     FEATURES = [
         "county",
@@ -176,12 +171,8 @@ with tab1:
     else:
         pred = model.predict(X)[0]
 
-    if not yield_c.empty:
-        last_actual = yield_c.sort_values("year").iloc[-1]["yield_bu_acre"]
-        delta = pred - last_actual
-    else:
-        last_actual = None
-        delta = None
+    last_actual = yield_c.sort_values("year").iloc[-1]["yield_bu_acre"]
+    delta = pred - last_actual
 
     c1, c2 = st.columns(2)
 
@@ -193,15 +184,16 @@ with tab1:
         )
 
     with c2:
-        if delta is not None:
-            st.caption(
-"For reference purposes only. The 2024 county yield is based on the USDA NASS survey and was officially published in 2025."
-)
-            st.metric(
-                f"2024 USDA NASS Reported Yield (Published 2025) — {COUNTY.upper()}",
-                f"{last_actual:.2f} bu/ac",
-                delta=f"{delta:+.2f} bu/ac"
-            )
+        st.caption(
+            "For reference purposes only. The 2024 county yield is based on the USDA "
+            "NASS survey and was officially published in 2025."
+        )
+
+        st.metric(
+            f"2024 USDA NASS Reported Yield (Published 2025) — {COUNTY.upper()}",
+            f"{last_actual:.2f} bu/ac",
+            delta=f"{delta:+.2f} bu/ac"
+        )
 
 # =====================================================
 # TAB 2 — DATA EXPLORER
@@ -209,13 +201,14 @@ with tab1:
 with tab2:
 
     st.subheader(
-    f"Observed Crop and Weather Conditions — {COUNTY.upper()} (through {current_cutoff.upper()})"
+        f"Observed Crop and Weather Conditions — {COUNTY.upper()} "
+        f"(through {current_cutoff.upper()})"
     )
 
     st.caption(
-    "This chart shows observed environmental conditions used to derive model features. "
-    "NDVI represents vegetation health from satellite imagery, temperature reflects weather "
-    "conditions, and storm markers indicate severe wind events."
+        "This chart shows observed environmental conditions used to derive model features. "
+        "NDVI represents vegetation health from satellite imagery, temperature reflects weather "
+        "conditions, and storm markers indicate severe wind events."
     )
 
     fig = go.Figure()
@@ -260,6 +253,52 @@ with tab2:
 
     st.plotly_chart(fig, width="stretch")
 
+    # ==========================================
+    # MODEL FEATURES
+    # ==========================================
+    st.subheader("Model Input Features")
+
+    display_df = augset_c[FEATURES].copy()
+
+    display_df = display_df.rename(columns={
+        "county": "County",
+        "rolling_3yr_mean": "3-Year Yield Avg",
+        "ndvi_peak": "NDVI Peak",
+        "ndvi_slope": "NDVI Growth Rate",
+        "temp_anomaly": "Temperature Anomaly",
+        "net_moisture_stress": "Net Moisture Stress",
+        "heat_days_gt32": "Heat Days > 29°C",
+        "wind_severe_days_58_cutoff": "Severe Wind Days (≥58 mph)"
+    })
+
+    st.dataframe(display_df, width="stretch")
+
+    # ==========================================
+    # RAW DATA
+    # ==========================================
+    st.subheader("Raw Data Explorer")
+
+    dataset_choice = st.radio(
+        "Inspect Dataset",
+        ["NDVI", "Weather", "Storm", "History"],
+        horizontal=True
+    )
+
+    if dataset_choice == "NDVI":
+        st.dataframe(ndvi_c, width="stretch")
+
+    elif dataset_choice == "Weather":
+        st.dataframe(wx_c, width="stretch")
+
+    elif dataset_choice == "Storm":
+        st.dataframe(storm_c, width="stretch")
+
+    elif dataset_choice == "History":
+        st.dataframe(
+            yield_c.sort_values("year", ascending=False),
+            width="stretch"
+        )
+
 # =====================================================
 # TAB 3 — FARMER CALCULATOR
 # =====================================================
@@ -268,8 +307,8 @@ with tab3:
     st.subheader("Farm-Level Production and Revenue Estimate")
 
     st.caption(
-    "This tool converts the AI yield forecast into estimated production and potential "
-    "farm revenue based on farm size and corn market price."
+        "This tool converts the AI yield forecast into estimated production and "
+        "potential farm revenue based on farm size and corn market price."
     )
 
     st.write(f"GEOAI Model Predicted Yield: **{pred:.2f} bu/ac**")
@@ -279,7 +318,7 @@ with tab3:
     c1, c2 = st.columns(2)
 
     with c1:
-        acres = st.number_input("Farm Size (acres)", min_value=1, value=30, step=1)
+        acres = st.number_input("Farm Size (acres)", min_value=1, value=30)
 
     with c2:
         corn_price = st.number_input(
