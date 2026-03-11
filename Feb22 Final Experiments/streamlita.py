@@ -4,6 +4,42 @@ import plotly.graph_objects as go
 import pickle
 import os
 
+# ===================================
+# S3 Setup 
+# ===================================
+
+try:
+    import boto3
+    import s3fs  # noqa: F401 (pandas uses it for s3://)
+    _HAS_AWS = True
+except Exception:
+    _HAS_AWS = False
+
+# ----------------------------
+# Secrets helper (optional)
+# ----------------------------
+
+def load_aws_secrets_into_env() -> None:
+    """
+    Supports Streamlit Cloud / local secrets.
+    If st.secrets has AWS creds, export them into env vars so boto3/pandas+s3fs can use them.
+    """
+    try:
+        secrets = st.secrets
+        _ = list(secrets.keys()) if hasattr(secrets, "keys") else None
+    except Exception:
+        return
+
+    if "AWS_ACCESS_KEY_ID" in secrets and "AWS_SECRET_ACCESS_KEY" in secrets:
+        os.environ["AWS_ACCESS_KEY_ID"] = secrets["AWS_ACCESS_KEY_ID"]
+        os.environ["AWS_SECRET_ACCESS_KEY"] = secrets["AWS_SECRET_ACCESS_KEY"]
+        os.environ["AWS_DEFAULT_REGION"] = secrets.get("AWS_DEFAULT_REGION", "ap-south-1")
+        if "AWS_SESSION_TOKEN" in secrets:
+            os.environ["AWS_SESSION_TOKEN"] = secrets["AWS_SESSION_TOKEN"]
+
+load_aws_secrets_into_env()
+
+
 # ==========================================
 # PAGE SETUP
 # ==========================================
@@ -12,8 +48,10 @@ st.set_page_config(page_title="2025 GEOAI Yield Intelligence Hub", layout="wide"
 # ==========================================
 # PATHS
 # ==========================================
-BASE_PATH = "Feb22 Final Experiments/inference-dataset/intermediate"
-FEATURE_DIR = "Feb22 Final Experiments/inference-dataset/features_frozen"
+#BASE_PATH = "Feb22 Final Experiments/inference-dataset/intermediate"
+#FEATURE_DIR = "Feb22 Final Experiments/inference-dataset/features_frozen"
+BASE_PATH = "s3://geoai-demo-data/inference-dataset/intermediate"
+FEATURE_DIR = "s3://geoai-demo-data/inference-dataset/features_frozen"
 
 # ==========================================
 # MODEL CONFIG
