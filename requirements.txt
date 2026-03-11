@@ -6,3 +6,6 @@ lightgbm
 mlflow
 matplotlib
 plotly
+
+s3fs
+boto3
