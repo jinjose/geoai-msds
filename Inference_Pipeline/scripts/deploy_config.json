@@ -1,0 +1,44 @@
+{
+  "project": "geoai-demo",
+  "region": "ap-south-1",
+  "stack": "geoai-demo-stack",
+  "buckets": {
+    "data_bucket": "geoai-demo-data",
+    "artifacts_bucket": "geoai-demo-artifacts",
+    "create_data_bucket": false,
+    "create_artifacts_bucket": false
+  },
+  "artifacts": {
+    "prefix": "lambda-artifacts",
+    "upload_lambda_artifacts": true,
+    "upload_model_registry": false
+  },
+  "pipeline": {
+    "schedule": "rate(1 day)",
+    "enable_schedule": false,
+    "backfill_start_year": 2014
+  },
+  "components": {
+    "ingestion": {
+      "build_push": false
+    },
+    "feature": {
+      "build_push": false
+    },
+    "inference": {
+      "build_push": false
+    },
+    "evaluation": {
+      "build_push": false
+    }
+  },
+  "images": {
+    "ingestion_image_uri": "172023108179.dkr.ecr.ap-south-1.amazonaws.com/geoai-demo-ingestion:latest",
+    "feature_image_uri": "172023108179.dkr.ecr.ap-south-1.amazonaws.com/geoai-demo-feature:latest",
+    "inference_image_uri": "172023108179.dkr.ecr.ap-south-1.amazonaws.com/geoai-demo-inference:latest",
+    "evaluation_image_uri": "172023108179.dkr.ecr.ap-south-1.amazonaws.com/geoai-demo-evaluation:latest"
+  },
+  "deploy": {
+    "deploy_stack": true
+  }
+}

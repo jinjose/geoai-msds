@@ -1,0 +1,50 @@
+{
+  "run_date": "2026-03-05",
+  "state_fips": "19",
+  "county_fips": "ALL",
+  "predict_year": "2025",
+  "steps": {
+    "ingest": false,
+    "features": false,
+    "model_registry": false,
+    "inference": true,
+    "evaluation": false,
+    "summary": false
+  },
+  "feature_seasons": ["jun01"],
+  "model_registry": {
+    "models": [
+      {
+        "model_name": "Jun01_LightGBM-limited_withstorm",
+        "model_s3_uri": "s3://geoai-demo-data/models/Jun01_LightGBM-limited_withstorm/model.tar.gz"
+      }
+    ]
+  }
+}
+
+
+### latest 
+
+{
+  "run_date": "2026-03-05",
+  "predict_year": "2025",
+  "state_fips": "19",
+  "county_fips": "ALL",
+  "feature_seasons": ["jun01"],
+  "seasons": {
+    "models": [
+      {
+        "name": "Jun01_LightGBM-limited_withstorm",
+        "model_s3_uri": "s3://geoai-demo-data/models/Jun01_LightGBM-limited_withstorm"
+      }
+    ]
+  },
+  "steps": {
+    "ingest": false,
+    "features": false,
+    "model_registry": false,
+    "inference": true,
+    "evaluation": false,
+    "summary": false
+  }
+}

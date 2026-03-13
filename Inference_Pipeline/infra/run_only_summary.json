@@ -1,0 +1,15 @@
+{
+  "run_date": "2026-03-05",
+  "state_fips": "19",
+  "county_fips": "ALL",
+  "predict_year": "2025",
+  "steps": {
+    "ingest": false,
+    "features": false,
+    "model_registry": false,
+    "inference": false,
+    "evaluation": false,
+    "summary": true
+  },
+  "feature_seasons": ["jun01"]
+}

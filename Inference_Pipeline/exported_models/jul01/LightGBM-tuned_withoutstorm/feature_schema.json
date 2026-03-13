@@ -1,0 +1,17 @@
+{
+    "cutoff": "jul01",
+    "model_name": "LightGBM-tuned_withoutstorm",
+    "expected_features": [
+        "county",
+        "rolling_3yr_mean",
+        "ndvi_peak",
+        "ndvi_slope",
+        "temp_anomaly",
+        "net_moisture_stress",
+        "heat_days_gt32"
+    ],
+    "categorical_features": [
+        "county"
+    ],
+    "target": "yield_bu_acre"
+}

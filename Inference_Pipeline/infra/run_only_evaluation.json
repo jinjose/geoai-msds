@@ -1,0 +1,27 @@
+{
+  "run_date": "2026-03-05",
+  "state_fips": "19",
+  "county_fips": "ALL",
+  "predict_year": "2025",
+  "steps": {
+    "ingest": false,
+    "features": false,
+    "model_registry": false,
+    "inference": false,
+    "evaluation": true,
+    "summary": false
+  },
+  "feature_seasons": ["jun01"],
+  "model_registry": {
+    "models": [
+      {
+        "model_name": "Jun01_LightGBM-limited_withstorm",
+        "model_s3_uri": "s3://geoai-demo-data/models/Jun01_LightGBM-limited_withstorm/model.tar.gz"
+      }
+    ]
+  },
+  "eval_year_ranges": [
+    { "name": "hist", "start": 2014, "end": 2020 },
+    { "name": "recent", "start": 2021, "end": 2024 }
+  ]
+}

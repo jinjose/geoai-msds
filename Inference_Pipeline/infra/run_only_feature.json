@@ -1,0 +1,44 @@
+{
+  "run_date": "2026-03-05",
+  "state_fips": "19",
+  "county_fips": "ALL",
+  "predict_year": "2025",
+  "steps": {
+    "ingest": false,
+    "features": true,
+    "model_registry": false,
+    "inference": false,
+    "evaluation": false,
+    "summary": false
+  },
+  "feature_seasons": ["jun01"]
+}
+
+
+#### latest 
+
+{
+  "run_date": "2026-03-05",
+  "predict_year": "2025",
+  "state_fips": "19",
+  "county_fips": "ALL",
+  "feature_seasons": ["jun01", "jul01", "aug01"],
+  "backfill_start_year": 2014,
+  "ingest": {
+    "start": "",
+    "end": "",
+    "ndvi_granularity": "daily",
+    "era5_granularity": "daily",
+    "storm_granularity": "daily",
+    "storm_wind_cutoff_mph": 58,
+    "yield_years": []
+  },
+  "steps": {
+    "ingest": false,
+    "features": true,
+    "model_registry": false,
+    "inference": false,
+    "evaluation": false,
+    "summary": false
+  }
+}

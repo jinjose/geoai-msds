@@ -1,0 +1,29 @@
+{
+  "models": [
+    {
+      "name": "Jun01_LightGBM-limited_withstorm",
+      "type": "mlflow",
+      "model_s3_prefix": "s3://geoai-demo-data/models/Jun01_LightGBM-limited_withstorm/"
+    },
+    {
+      "name": "Jul01_LightGBM-tuned_withoutstorm",
+      "type": "mlflow",
+      "model_s3_prefix": "s3://geoai-demo-data/models/Jul01_LightGBM-tuned_withoutstorm/"
+    },
+    {
+      "name": "Jul15_LightGBM-limited_withstorm",
+      "type": "mlflow",
+      "model_s3_prefix": "s3://geoai-demo-data/models/Jul15_LightGBM-limited_withstorm/"
+    },
+    {
+      "name": "Aug01_LightGBM-limited_withstorm",
+      "type": "mlflow",
+      "model_s3_prefix": "s3://geoai-demo-data/models/Aug01_LightGBM-limited_withstorm/"
+    },     
+    {
+      "name": "Aug15_LightGBM-limited_withstorm",
+      "type": "mlflow",
+      "model_s3_prefix": "s3://geoai-demo-data/models/Aug15_LightGBM-limited_withstorm/"
+    }      
+  ]  
+}

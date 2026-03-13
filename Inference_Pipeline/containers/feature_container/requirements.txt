@@ -1,0 +1,6 @@
+pandas
+numpy
+boto3
+scipy
+pyarrow
+s3fs
