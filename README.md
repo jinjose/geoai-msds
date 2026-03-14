@@ -1,4 +1,7 @@
-# GEOAI corn field prediction
+# GEOAI Corn Annual Yield prediction
+APPLICATION:
+![application-live.png](application-live.png)
+🔗 [Open Live App](https://jinjose-geoai-msds-feb22finalexperimentsstreamlita-j20gmx.streamlit.app/)
 
  ``` Download this shape file from internet tl_2023_us_county.shp``` and place it under raw_dataprep
 ### Important  Commands
