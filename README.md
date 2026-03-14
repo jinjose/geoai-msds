@@ -98,9 +98,6 @@ mlflow ui --port 5050
 Then open in browser:
 
     http://127.0.0.1:5000
- 
-
-(or the port you specified)
 
 MLflow will show:
 
@@ -108,6 +105,7 @@ MLflow will show:
 -   MAE, RMSE, MAPE, R²
 -   Comparison plots
 -   Artifacts and logs
+
 
 
 Results:
