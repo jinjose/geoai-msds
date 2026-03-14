@@ -12,10 +12,10 @@ flavors:
       conda: conda.yaml
       virtualenv: python_env.yaml
     loader_module: mlflow.lightgbm
-    python_version: 3.10.13
-mlflow_version: 3.10.0
+    python_version: 3.11.9
+mlflow_version: 3.10.1
 model_id: null
-model_size_bytes: 1483723
-model_uuid: 7d384a172f0b485e8f24682e64436228
+model_size_bytes: 1479483
+model_uuid: 11bb026fe6b341e69174764963972315
 prompts: null
-utc_time_created: '2026-02-28 08:16:13.330124'
+utc_time_created: '2026-03-14 17:34:27.910070'
