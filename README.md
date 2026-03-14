@@ -15,9 +15,8 @@
 ## Project Structure
 
 ```
-.
+├── Feb22 Final Experiments/ 
 ├── exported_models/        # Final selected models per cutoff
-├── mlruns/                 # MLflow experiment tracking directory
 ├── plots/                  # Auto-generated comparison plots
 ├── raw_dataprep/           # Raw preprocessing outputs
 ├── src/
@@ -27,12 +26,15 @@
 │   ├── build_new_features.py
 │   ├── config.py
 │   ├── train.py            # Main training + model selection script
+│   ├── training.ipynb      # Main training + model selection script
+│   └── training.html   
 │   └── utils.py
 │   └── tests               # Unittest
 ├── training-dataset/
 │   ├── features_frozen/    # Cutoff-specific frozen feature files
 │   └── raw/                # Raw source data
 | report.hmtl               # Pytest test outputs
+│   Inference_Pipeline      #AWS cloud deployment resources 
 ```
 
 ------------------------------------------------------------------------
@@ -52,7 +54,7 @@
 To generate new feature sets:
 
 ``` bash
-python src/build_new_features.py
+python src/build_new_features.py --mode historical, live
 ```
 
 This will:
