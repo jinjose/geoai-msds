@@ -18,28 +18,28 @@ APPLICATION:
 ## Project Structure
 
 ```
- Feb22 Final Experiments/ 
-├── exported_models/        # Final selected models per cutoff
-├── plots/                  # Auto-generated comparison plots
-├── raw_dataprep/           # Raw preprocessing outputs
-├── src/
-│   ├── analysis/           # Plotting, SHAP, comparison utilities
-│   ├── features/           # Raw data cleaning, Feature engineering logic
-│   ├── models/             # All model training functions
-│   ├── build_new_features.py #Entrypoint script that calls data cleaning and builing frozen feature 
-│   ├── config.py           #config files for seasonal cutoffs
-│   ├── training.ipynb      # Main training + model selection script
-│   └── training.html       # HTML view  of training.ipynb 
-|   └── inference-demo.ipynb       # Inference demo script
-|   └── inference-demo.html       # HTML file of inference-demo.ipynb
-│   └── utils.py            #Helper function
-│   └── tests               # Unittest
-│   └── training-dataset/   # training dataset for training
-│   └── inference-dataset/   # inference dataset for prediction
-│   ├── features_frozen/    # Cutoff-specific frozen feature files
-│   └── raw/                # Raw source data, (large files download and place it from google drive after cloning repo)
-| report.hmtl               # Pytest test outputs
-Inference_Pipeline      #AWS cloud deployment resources 
+Feb22 Final Experiments/ 
+    ├── exported_models/        # Final selected models per cutoff
+    ├── plots/                  # Auto-generated comparison plots
+    ├── raw_dataprep/           # Raw preprocessing outputs
+    ├── src/
+    │   ├── analysis/           # Plotting, SHAP, comparison utilities
+    │   ├── features/           # Raw data cleaning, Feature engineering logic
+    │   ├── models/             # All model training functions
+    │   ├── build_new_features.py # Entrypoint script that calls data cleaning and builing frozen feature 
+    │   ├── config.py           # config files for seasonal cutoffs
+    │   ├── training.ipynb      # Main training + model selection script
+    │   └── training.html       # HTML view  of training.ipynb 
+    │   └── inference-demo.ipynb       # Inference demo script
+    │   └── inference-demo.html       # HTML file of inference-demo.ipynb
+    │   └── utils.py            # Helper function
+    │   └── tests               # Unittest
+    │   └── training-dataset/   # training dataset for training
+    │   └── inference-dataset/   # inference dataset for prediction
+    │   ├── features_frozen/    # Cutoff-specific frozen feature files
+    │   └── raw/                # Raw source data, (large files download and place it from google drive after cloning repo)
+    │ report.hmtl               # Pytest test outputs
+Inference_Pipeline/      #AWS cloud deployment resources 
 ```
 
 ------------------------------------------------------------------------
