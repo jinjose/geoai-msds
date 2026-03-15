@@ -34,9 +34,9 @@ APPLICATION:
 |   └── inference-demo.html       # HTML file of inference-demo.ipynb
 │   └── utils.py
 │   └── tests               # Unittest
-├── training-dataset/
+│   └── training-dataset/
 │   ├── features_frozen/    # Cutoff-specific frozen feature files
-│   └── raw/                # Raw source data
+│   └── raw/                # Raw source data, (large files download and place it from google drive after cloning repo)
 | report.hmtl               # Pytest test outputs
 Inference_Pipeline      #AWS cloud deployment resources 
 ```
