@@ -3,8 +3,8 @@ APPLICATION:
 ![application-live.png](application-live.png)
 🔗 [Open Live App](https://jinjose-geoai-msds-feb22finalexperimentsstreamlita-j20gmx.streamlit.app/)
 
+### Important  instructions
  ``` Download this shape file from internet tl_2023_us_county.shp``` and place it under raw_dataprep
-### Important  Commands
 
 ```mlflow ui --port 5050 --backend-store-uri "./Feb22 Final Experiments/mlruns"```
 
@@ -18,26 +18,27 @@ APPLICATION:
 ## Project Structure
 
 ```
-├── Feb22 Final Experiments/ 
+ Feb22 Final Experiments/ 
 ├── exported_models/        # Final selected models per cutoff
 ├── plots/                  # Auto-generated comparison plots
 ├── raw_dataprep/           # Raw preprocessing outputs
 ├── src/
 │   ├── analysis/           # Plotting, SHAP, comparison utilities
-│   ├── features/           # Feature engineering logic
+│   ├── features/           # Raw data cleaning, Feature engineering logic
 │   ├── models/             # All model training functions
 │   ├── build_new_features.py
 │   ├── config.py
-│   ├── train.py            # Main training + model selection script
 │   ├── training.ipynb      # Main training + model selection script
-│   └── training.html   
+│   └── training.html       # HTML view  of training.ipynb 
+|   └── inference-demo.ipynb       # Inference demo script
+|   └── inference-demo.html       # HTML file of inference-demo.ipynb
 │   └── utils.py
 │   └── tests               # Unittest
 ├── training-dataset/
 │   ├── features_frozen/    # Cutoff-specific frozen feature files
 │   └── raw/                # Raw source data
 | report.hmtl               # Pytest test outputs
-│   Inference_Pipeline      #AWS cloud deployment resources 
+Inference_Pipeline      #AWS cloud deployment resources 
 ```
 
 ------------------------------------------------------------------------
