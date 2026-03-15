@@ -34,7 +34,8 @@ APPLICATION:
 |   └── inference-demo.html       # HTML file of inference-demo.ipynb
 │   └── utils.py            #Helper function
 │   └── tests               # Unittest
-│   └── training-dataset/   # training dataset
+│   └── training-dataset/   # training dataset for training
+│   └── inference-dataset/   # inference dataset for prediction
 │   ├── features_frozen/    # Cutoff-specific frozen feature files
 │   └── raw/                # Raw source data, (large files download and place it from google drive after cloning repo)
 | report.hmtl               # Pytest test outputs
